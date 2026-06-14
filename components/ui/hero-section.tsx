@@ -71,6 +71,13 @@ export default function HeroSection() {
               className="mask-y-from-35% mask-y-to-90% absolute inset-0 top-56 lg:top-12"
             >
               <Image
+                src="https://images.unsplash.com/photo-1667302324624-cc30cdb7f8bb?q=80&w=1035&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+                alt="background"
+                className="size-full mix-blend-overlay dark:hidden"
+                width="3276"
+                height="4095"
+              />
+              <Image
                 src="https://images.unsplash.com/photo-1662285064441-bedb11ca7e47?q=80&w=1344&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
                 alt="background"
                 className="hidden size-full mix-blend-overlay dark:block"
@@ -113,9 +120,9 @@ export default function HeroSection() {
                   preset="fade-in-blur"
                   speedSegment={0.3}
                   as="h1"
-                  className="mx-auto mt-8 max-w-4xl text-balance text-5xl max-md:font-semibold md:text-7xl lg:mt-16 xl:text-[5.25rem]"
+                  className="mx-auto mt-8 max-w-4xl text-balance text-5xl max-md:font-semibold md:text-7xl lg:mt-16 xl:text-[4.55rem]"
                 >
-                  Manage Email & Calendar Zero Clicks
+                  Manage Email & Calendar With Zero Clicks
                 </TextEffect>
                 <TextEffect
                   per="line"

@@ -2,6 +2,7 @@ import HeroSection from "@/components/landing/hero-section";
 import FeaturesSection from "@/components/landing/features";
 import IntegrationsSection from "@/components/landing/integrations";
 import ContentSection from "@/components/landing/content";
+import PricingSection from "@/components/landing/pricing";
 
 export default function Home() {
   return (
@@ -10,6 +11,7 @@ export default function Home() {
       <FeaturesSection />
       <IntegrationsSection />
       <ContentSection />
+      <PricingSection />
     </div>
   );
 }

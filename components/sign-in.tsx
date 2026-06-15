@@ -1,12 +1,81 @@
+"use client";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
+import { useSignIn } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export default function SignInPage() {
+  const { signIn, errors, fetchStatus } = useSignIn();
+  const router = useRouter();
+  
+  const [emailAddress, setEmailAddress] = useState("");
+  const [password, setPassword] = useState("");
+  const [globalError, setGlobalError] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!signIn) return;
+    
+    setGlobalError("");
+
+    try {
+      const { error } = await signIn.password({
+        identifier: emailAddress,
+        password,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (signIn.status === "complete") {
+        await signIn.finalize({
+          navigate: async ({ session, decorateUrl }) => {
+            const destination = session?.currentTask
+              ? `/sign-in/tasks/${session.currentTask.key}`
+              : "/dashboard";
+            const url = decorateUrl(destination);
+            if (url.startsWith("http")) {
+              window.location.href = url;
+            } else {
+              router.push(url);
+            }
+          },
+        });
+      } else if (signIn.status === "needs_second_factor") {
+        // Simple log for now, you can expand to support MFA later
+        setGlobalError("MFA is not currently supported in this custom UI.");
+      } else {
+        console.log("Sign in not complete. Status:", signIn.status);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setGlobalError(
+        err?.errors?.[0]?.longMessage || err?.message || "An error occurred during sign in."
+      );
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    if (!signIn) return;
+    try {
+      await signIn.sso({
+        strategy: "oauth_google",
+        redirectUrl: "/dashboard",
+        redirectCallbackUrl: "/sso-callback",
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
     <section className="flex min-h-screen bg-zinc-50 px-4 py-16 md:py-32 dark:bg-transparent">
-      <form action="" className="max-w-92 m-auto h-fit w-full">
+      <div className="max-w-92 m-auto h-fit w-full">
         <div className="p-6">
           <div>
             <Link href="/" aria-label="go home">
@@ -17,16 +86,22 @@ export default function SignInPage() {
             <h1 className="mb-1 mt-4 text-xl font-semibold">
               Sign In to ZeroClick
             </h1>
-            <p>Welcome back! Sign in to continue</p>
+            <p className="text-muted-foreground mt-2 text-sm">Welcome back! Sign in to continue</p>
           </div>
 
           <div className="mt-6">
-            <Button type="button" variant="outline" className="w-full">
+            <Button 
+              type="button" 
+              variant="outline" 
+              className="w-full" 
+              onClick={handleGoogleSignIn}
+            >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="0.98em"
                 height="1em"
                 viewBox="0 0 256 262"
+                className="mr-2"
               >
                 <path
                   fill="#4285f4"
@@ -57,16 +132,45 @@ export default function SignInPage() {
             <hr className="border-dashed" />
           </div>
 
-          <div className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="email" className="block text-sm">
                 Email
               </Label>
-              <Input type="email" required name="email" id="email" />
+              <Input 
+                type="email" 
+                required 
+                name="email" 
+                id="email" 
+                value={emailAddress}
+                onChange={(e) => setEmailAddress(e.target.value)}
+              />
+              {errors?.fields?.identifier && <p className="text-sm text-red-500">{errors.fields.identifier.message}</p>}
             </div>
 
-            <Button className="w-full">Continue</Button>
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="password" className="block text-sm">
+                Password
+              </Label>
+              <Input 
+                type="password" 
+                required 
+                name="password" 
+                id="password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              {errors?.fields?.password && <p className="text-sm text-red-500">{errors.fields.password.message}</p>}
+            </div>
+
+            {globalError && (
+              <p className="text-sm text-red-500">{globalError}</p>
+            )}
+
+            <Button type="submit" className="w-full" disabled={fetchStatus === "fetching"}>
+              {fetchStatus === "fetching" ? "Signing in..." : "Continue"}
+            </Button>
+          </form>
         </div>
 
         <p className="text-accent-foreground text-center text-sm">
@@ -75,7 +179,7 @@ export default function SignInPage() {
             <Link href="/sign-up">Create account</Link>
           </Button>
         </p>
-      </form>
+      </div>
     </section>
   );
 }

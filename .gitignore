@@ -41,5 +41,5 @@ yarn-error.log*
 next-env.d.ts
 ZeroClick_/
 .pnpm-store
-.agent
+.agents
 migrations

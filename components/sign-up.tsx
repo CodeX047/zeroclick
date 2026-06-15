@@ -1,12 +1,133 @@
+"use client";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
+import { useSignUp } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export default function SignupPage() {
+  const { signUp, errors, fetchStatus } = useSignUp();
+  const router = useRouter();
+
+  const [emailAddress, setEmailAddress] = useState("");
+  const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [pendingVerification, setPendingVerification] = useState(false);
+  const [globalError, setGlobalError] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!signUp) return;
+    
+    setGlobalError("");
+
+    try {
+      const { error } = await signUp.create({
+        emailAddress,
+        password,
+      });
+
+      if (error) throw error;
+
+      await signUp.verifications.sendEmailCode();
+      setPendingVerification(true);
+    } catch (err: any) {
+      console.error(err);
+      setGlobalError(
+        err?.errors?.[0]?.longMessage || err?.message || "An error occurred during sign up."
+      );
+    }
+  };
+
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!signUp) return;
+
+    setGlobalError("");
+
+    try {
+      const { error } = await signUp.verifications.verifyEmailCode({
+        code,
+      });
+
+      if (error) throw error;
+
+      if (signUp.status === "complete") {
+        await signUp.finalize({
+          navigate: async ({ session, decorateUrl }) => {
+            const destination = session?.currentTask
+              ? `/sign-up/tasks/${session.currentTask.key}`
+              : "/dashboard";
+            const url = decorateUrl(destination);
+            if (url.startsWith("http")) {
+              window.location.href = url;
+            } else {
+              router.push(url);
+            }
+          },
+        });
+      }
+    } catch (err: any) {
+      console.error(err);
+      setGlobalError(
+        err?.errors?.[0]?.longMessage || err?.message || "An error occurred during verification."
+      );
+    }
+  };
+
+  const handleGoogleSignUp = async () => {
+    if (!signUp) return;
+    try {
+      await signUp.sso({
+        strategy: "oauth_google",
+        redirectUrl: "/dashboard",
+        redirectCallbackUrl: "/sso-callback",
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  if (pendingVerification) {
+    return (
+      <section className="flex min-h-screen bg-zinc-50 px-4 py-16 md:py-32 dark:bg-transparent">
+        <div className="max-w-92 m-auto h-fit w-full">
+          <div className="p-6">
+            <h1 className="mb-1 mt-4 text-xl font-semibold">Verify your email</h1>
+            <p className="text-muted-foreground mt-2 text-sm">We sent a verification code to {emailAddress}.</p>
+            
+            <form onSubmit={handleVerify} className="mt-6 space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="code" className="block text-sm">Code</Label>
+                <Input 
+                  type="text" 
+                  required 
+                  name="code" 
+                  id="code" 
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                />
+                {errors?.fields?.code && <p className="text-sm text-red-500">{errors.fields.code.message}</p>}
+              </div>
+
+              {globalError && <p className="text-sm text-red-500">{globalError}</p>}
+
+              <Button type="submit" className="w-full" disabled={fetchStatus === "fetching"}>
+                {fetchStatus === "fetching" ? "Verifying..." : "Verify"}
+              </Button>
+            </form>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="flex min-h-screen bg-zinc-50 px-4 py-16 md:py-32 dark:bg-transparent">
-      <form action="" className="max-w-92 m-auto h-fit w-full">
+      <div className="max-w-92 m-auto h-fit w-full">
         <div className="p-6">
           <div>
             <Link href="/" aria-label="go home">
@@ -23,12 +144,18 @@ export default function SignupPage() {
           </div>
 
           <div className="mt-6">
-            <Button type="button" variant="outline" className="w-full">
+            <Button 
+              type="button" 
+              variant="outline" 
+              className="w-full"
+              onClick={handleGoogleSignUp}
+            >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="0.98em"
                 height="1em"
                 viewBox="0 0 256 262"
+                className="mr-2"
               >
                 <path
                   fill="#4285f4"
@@ -59,16 +186,43 @@ export default function SignupPage() {
             <hr className="border-dashed" />
           </div>
 
-          <div className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="email" className="block text-sm">
                 Email
               </Label>
-              <Input type="email" required name="email" id="email" />
+              <Input 
+                type="email" 
+                required 
+                name="email" 
+                id="email" 
+                value={emailAddress}
+                onChange={(e) => setEmailAddress(e.target.value)}
+              />
+              {errors?.fields?.emailAddress && <p className="text-sm text-red-500">{errors.fields.emailAddress.message}</p>}
             </div>
 
-            <Button className="w-full">Continue</Button>
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="password" className="block text-sm">
+                Password
+              </Label>
+              <Input 
+                type="password" 
+                required 
+                name="password" 
+                id="password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              {errors?.fields?.password && <p className="text-sm text-red-500">{errors.fields.password.message}</p>}
+            </div>
+
+            {globalError && <p className="text-sm text-red-500">{globalError}</p>}
+
+            <Button type="submit" className="w-full" disabled={fetchStatus === "fetching"}>
+              {fetchStatus === "fetching" ? "Loading..." : "Continue"}
+            </Button>
+          </form>
         </div>
 
         <p className="text-accent-foreground text-center text-sm">
@@ -77,7 +231,10 @@ export default function SignupPage() {
             <Link href="/sign-in">Sign In</Link>
           </Button>
         </p>
-      </form>
+      </div>
+
+      {/* Required for sign-up flows. Clerk's bot sign-up protection is enabled by default */}
+      <div id="clerk-captcha" />
     </section>
   );
 }

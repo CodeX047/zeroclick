@@ -43,3 +43,8 @@ ZeroClick_/
 .pnpm-store
 .agents
 migrations
+
+# local scratch files
+scratch.ts
+server/test.ts
+

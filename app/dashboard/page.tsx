@@ -5,70 +5,44 @@ import { redirect } from "next/navigation";
 export default async function DashboardPage() {
   const user = await currentUser();
 
-  // Protect the route - if no user is signed in, redirect them to the sign-in page
   if (!user) {
     redirect("/sign-in");
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 p-4 md:p-8 dark:bg-zinc-950">
-      <header className="mx-auto max-w-5xl flex items-center justify-between bg-white p-4 shadow-sm rounded-xl dark:bg-zinc-900">
-        <div className="flex items-center gap-2">
-          <div className="size-8 rounded bg-primary/10 flex items-center justify-center">
-            <span className="text-primary font-bold">ZC</span>
-          </div>
-          <h1 className="text-xl font-bold tracking-tight">Dashboard</h1>
-        </div>
-        
-        {/* The UserButton automatically handles sign-out and account management */}
-        <UserButton />
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col relative">
+      <header className="absolute top-0 right-0 p-6 z-10">
+        <UserButton appearance={{ elements: { userButtonAvatarBox: "w-10 h-10" } }} />
       </header>
 
-      <main className="mx-auto max-w-5xl mt-6">
-        <div className="rounded-xl bg-white p-6 md:p-8 shadow-sm dark:bg-zinc-900">
-          <h2 className="text-2xl font-semibold mb-2">
-            Welcome, {user.firstName || "User"}! 🎉
-          </h2>
-          <p className="text-muted-foreground mb-8">
-            You have successfully authenticated using the custom Clerk flow and reached the protected dashboard.
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="rounded-lg border p-5 dark:border-zinc-800">
-              <h3 className="font-medium text-xs text-zinc-500 uppercase tracking-wider mb-4">
-                Account Details
-              </h3>
-              <div className="space-y-3">
-                <div>
-                  <span className="text-xs text-muted-foreground block mb-1">Primary Email</span>
-                  <p className="text-sm font-medium">{user.emailAddresses[0]?.emailAddress}</p>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground block mb-1">User ID</span>
-                  <p className="text-xs font-mono text-zinc-600 dark:text-zinc-400 break-all">{user.id}</p>
-                </div>
+      <main className="flex-1 flex flex-col items-center justify-center p-4">
+        <div className="w-full max-w-2xl text-center space-y-8">
+          <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-zinc-800 dark:text-zinc-100">
+            ZeroClick
+          </h1>
+          
+          <div className="relative group w-full">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-primary to-primary/50 rounded-2xl blur opacity-20 group-focus-within:opacity-40 transition duration-500"></div>
+            <div className="relative bg-white dark:bg-zinc-900 rounded-2xl shadow-sm flex items-center border border-zinc-200 dark:border-zinc-800 focus-within:border-primary/50 transition-colors">
+              <input 
+                type="text" 
+                placeholder="Ask ZeroClick..." 
+                className="w-full bg-transparent px-6 py-5 text-lg outline-none placeholder:text-zinc-400 dark:placeholder:text-zinc-500 text-zinc-900 dark:text-zinc-100 rounded-2xl"
+                autoFocus
+              />
+              <div className="pr-4">
+                <button className="bg-primary text-primary-foreground p-2.5 rounded-xl hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                  </svg>
+                </button>
               </div>
             </div>
-            
-            <div className="rounded-lg border p-5 dark:border-zinc-800 bg-primary/5 border-primary/10">
-              <h3 className="font-medium text-xs text-primary uppercase tracking-wider mb-4">
-                Next Steps
-              </h3>
-              <ul className="text-sm space-y-3">
-                <li className="flex items-center gap-2">
-                  <span className="size-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px]">1</span>
-                  <span>Click your profile picture top-right</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="size-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px]">2</span>
-                  <span>Manage your account settings</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="size-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px]">3</span>
-                  <span>Try signing out and back in</span>
-                </li>
-              </ul>
-            </div>
+          </div>
+          
+          <div className="text-sm text-zinc-500 dark:text-zinc-400">
+            Try asking to <span className="font-medium text-zinc-700 dark:text-zinc-300">summarize my unread emails</span> or <span className="font-medium text-zinc-700 dark:text-zinc-300">reschedule my next meeting</span>.
           </div>
         </div>
       </main>

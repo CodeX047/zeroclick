@@ -4,13 +4,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { useSignIn } from "@clerk/nextjs";
+import { useSignIn, useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function SignInPage() {
   const { signIn, errors, fetchStatus } = useSignIn();
+  const { isSignedIn } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    if (isSignedIn) {
+      router.push("/auth-callback");
+    }
+  }, [isSignedIn, router]);
   
   const [emailAddress, setEmailAddress] = useState("");
   const [password, setPassword] = useState("");
@@ -37,7 +44,7 @@ export default function SignInPage() {
           navigate: async ({ session, decorateUrl }) => {
             const destination = session?.currentTask
               ? `/sign-in/tasks/${session.currentTask.key}`
-              : "/dashboard";
+              : "/auth-callback";
             const url = decorateUrl(destination);
             if (url.startsWith("http")) {
               window.location.href = url;
@@ -63,13 +70,17 @@ export default function SignInPage() {
   const handleGoogleSignIn = async () => {
     if (!signIn) return;
     try {
-      await signIn.sso({
+      const { error } = await signIn.sso({
         strategy: "oauth_google",
-        redirectUrl: "/dashboard",
+        redirectUrl: "/auth-callback",
         redirectCallbackUrl: "/sso-callback",
       });
-    } catch (err) {
-      console.error(err);
+      if (error) throw error;
+    } catch (err: any) {
+      console.error("Google SSO Error:", err);
+      setGlobalError(
+        err?.errors?.[0]?.longMessage || err?.message || "Google Sign-In failed."
+      );
     }
   };
 

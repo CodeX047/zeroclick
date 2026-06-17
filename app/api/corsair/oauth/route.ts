@@ -25,9 +25,9 @@ export async function GET(req: Request) {
     try {
       await processOAuthCallback(corsair, { code, state, redirectUri });
       success = true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("OAuth callback failed:", err);
-      errorMessage = err.message;
+      errorMessage = err instanceof Error ? err.message : String(err);
     }
 
     if (success) {

@@ -6,8 +6,15 @@ import PricingSection from "@/components/landing/pricing";
 import FAQsSection from "@/components/landing/faqs";
 import CallToActionSection from "@/components/landing/call-to-action";
 import FooterSection from "@/components/landing/footer";
+import { currentUser } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 
-export default function Home() {
+export default async function Home() {
+  const user = await currentUser();
+  if (user) {
+    redirect("/dashboard");
+  }
+
   return (
     <div>
       <HeroSection />

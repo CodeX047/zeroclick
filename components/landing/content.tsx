@@ -47,10 +47,10 @@ export default function ContentSection() {
             <div className="pt-6">
               <blockquote className="border-l-4 pl-4">
                 <p>
-                  "ZeroClick has fundamentally changed how I work. What used to
+                  &quot;ZeroClick has fundamentally changed how I work. What used to
                   take 10 minutes of clicking through tabs and copying
-                  information now happens instantly with a single command. It's
-                  an absolute game-changer."
+                  information now happens instantly with a single command. It&apos;s
+                  an absolute game-changer.&quot;
                 </p>
 
                 <div className="mt-6 space-y-3">

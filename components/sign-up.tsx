@@ -41,10 +41,12 @@ export default function SignupPage() {
 
       await signUp.verifications.sendEmailCode();
       setPendingVerification(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const clerkErr = err as any;
       setGlobalError(
-        err?.errors?.[0]?.longMessage || err?.message || "An error occurred during sign up."
+        clerkErr?.errors?.[0]?.longMessage || clerkErr?.message || "An error occurred during sign up."
       );
     }
   };
@@ -77,10 +79,12 @@ export default function SignupPage() {
           },
         });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const clerkErr = err as any;
       setGlobalError(
-        err?.errors?.[0]?.longMessage || err?.message || "An error occurred during verification."
+        clerkErr?.errors?.[0]?.longMessage || clerkErr?.message || "An error occurred during verification."
       );
     }
   };
@@ -94,10 +98,12 @@ export default function SignupPage() {
         redirectCallbackUrl: "/sso-callback",
       });
       if (error) throw error;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Google SSO Error:", err);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const clerkErr = err as any;
       setGlobalError(
-        err?.errors?.[0]?.longMessage || err?.message || "Google Sign-Up failed."
+        clerkErr?.errors?.[0]?.longMessage || clerkErr?.message || "Google Sign-Up failed."
       );
     }
   };

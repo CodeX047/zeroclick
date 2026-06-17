@@ -36,10 +36,11 @@ export async function connectIntegration(pluginName: "gmail" | "googlecalendar")
       redirectUri,
     });
     oauthUrl = url;
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Failed to generate OAuth URL:", err);
     // Likely missing client_id/secret for the plugin in the Corsair DB.
-    redirect(`/onboarding?error=${encodeURIComponent(err.message)}`);
+    const message = err instanceof Error ? err.message : String(err);
+    redirect(`/onboarding?error=${encodeURIComponent(message)}`);
   }
 
   // Redirect must be called outside try/catch because Next.js uses errors to interrupt control flow

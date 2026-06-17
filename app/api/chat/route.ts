@@ -40,6 +40,7 @@ export async function POST(req: Request) {
             const data = await tenant.gmail.db.messages.search({ limit });
             if (!data || data.length === 0)
               return { success: true, emails: [] };
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const emails = data.map((item: any) => {
               const msg = item.data || {};
               return {
@@ -52,7 +53,7 @@ export async function POST(req: Request) {
               };
             });
             return { success: true, emails };
-          } catch (error: any) {
+          } catch (error: unknown) {
             console.error("Error in getLatestEmails tool:", error);
             return {
               success: false,
@@ -81,17 +82,19 @@ export async function POST(req: Request) {
             if (!data || data.length === 0)
               return { success: true, events: [] };
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const events = data.map((item: any) => {
               const event = item.data || {};
               let startStr = "";
               let endStr = "";
 
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const parseJsonOrObj = (val: any) => {
                 if (!val) return null;
                 if (typeof val === "string") {
                   try {
                     return JSON.parse(val);
-                  } catch (e) {
+                  } catch {
                     return null;
                   }
                 }
@@ -123,13 +126,14 @@ export async function POST(req: Request) {
                 end: endStr,
                 attendees: Array.isArray(parseJsonOrObj(event.attendees))
                   ? parseJsonOrObj(event.attendees)
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       .map((a: any) => a.email)
                       .filter(Boolean)
                   : [],
               };
             });
             return { success: true, events };
-          } catch (error: any) {
+          } catch (error: unknown) {
             console.error("Error in getUpcomingEvents tool:", error);
             return {
               success: false,
@@ -173,7 +177,7 @@ export async function POST(req: Request) {
               raw: encodedMessage,
             });
             return { success: true };
-          } catch (error: any) {
+          } catch (error: unknown) {
             console.error("Error in sendEmail tool:", error);
             return {
               success: false,
@@ -234,7 +238,7 @@ export async function POST(req: Request) {
               },
             });
             return { success: true };
-          } catch (error: any) {
+          } catch (error: unknown) {
             console.error("Error in createCalendarEvent tool:", error);
             return {
               success: false,
@@ -306,13 +310,14 @@ Today's date is ${new Date().toLocaleDateString("en-US", { weekday: "long", year
     });
 
     // Run the agent with conversation history
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await run(agent, inputMessages as any);
 
     return NextResponse.json({ response: result.finalOutput });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Agent Error:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to process request" },
+      { error: error instanceof Error ? error.message : "Failed to process request" },
       { status: 500 },
     );
   }

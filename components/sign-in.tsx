@@ -59,10 +59,12 @@ export default function SignInPage() {
       } else {
         console.log("Sign in not complete. Status:", signIn.status);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const clerkErr = err as any;
       setGlobalError(
-        err?.errors?.[0]?.longMessage || err?.message || "An error occurred during sign in."
+        clerkErr?.errors?.[0]?.longMessage || clerkErr?.message || "An error occurred during sign in."
       );
     }
   };
@@ -76,10 +78,12 @@ export default function SignInPage() {
         redirectCallbackUrl: "/sso-callback",
       });
       if (error) throw error;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Google SSO Error:", err);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const clerkErr = err as any;
       setGlobalError(
-        err?.errors?.[0]?.longMessage || err?.message || "Google Sign-In failed."
+        clerkErr?.errors?.[0]?.longMessage || clerkErr?.message || "Google Sign-In failed."
       );
     }
   };
@@ -185,7 +189,7 @@ export default function SignInPage() {
         </div>
 
         <p className="text-accent-foreground text-center text-sm">
-          Don't have an account ?
+          Don&apos;t have an account ?
           <Button asChild variant="link" className="px-2">
             <Link href="/sign-up">Create account</Link>
           </Button>

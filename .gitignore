@@ -45,6 +45,5 @@ ZeroClick_/
 migrations
 
 # local scratch files
-scratch.ts
-server/test.ts
-
+scripts
+test.ts

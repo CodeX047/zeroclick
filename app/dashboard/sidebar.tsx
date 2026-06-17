@@ -1,34 +1,40 @@
 "use client";
 
-import { useState } from "react";
-import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import {
   Inbox,
   Calendar,
-  ListTodo,
-  Sparkles,
   Clock,
   Settings,
   ChevronLeft,
   ChevronRight,
-  Zap,
   CheckCircle2,
+  Home,
+  Zap,
 } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  activeItem: string;
+  onSelectItem: (item: string) => void;
   isGmailConnected?: boolean;
   isCalendarConnected?: boolean;
 }
 
-const navItems = [
+type NavItem = {
+  icon: React.ElementType;
+  label: string;
+  href: string;
+  badge?: number;
+  shortcut?: string;
+};
+
+const navItems: NavItem[] = [
+  { icon: Home, label: "Home", href: "/dashboard" },
   { icon: Inbox, label: "Inbox", href: "/dashboard", badge: 12 },
   { icon: Calendar, label: "Calendar", href: "/dashboard" },
-  { icon: ListTodo, label: "Tasks", href: "/dashboard" },
-  { icon: Sparkles, label: "AI Assistant", href: "/dashboard", shortcut: "⌘/" },
   { icon: Clock, label: "History", href: "/dashboard" },
   { icon: Settings, label: "Settings", href: "/dashboard" },
 ];
@@ -36,11 +42,12 @@ const navItems = [
 export function Sidebar({
   collapsed,
   onToggle,
+  activeItem,
+  onSelectItem,
   isGmailConnected = true,
   isCalendarConnected = true,
 }: SidebarProps) {
-  const pathname = usePathname();
-  const [activeItem, setActiveItem] = useState("Inbox");
+
 
   return (
     <aside
@@ -87,7 +94,7 @@ export function Sidebar({
           return (
             <button
               key={item.label}
-              onClick={() => setActiveItem(item.label)}
+              onClick={() => onSelectItem(item.label)}
               className={`
                 flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm transition-all duration-200
                 ${collapsed ? "justify-center px-0" : ""}

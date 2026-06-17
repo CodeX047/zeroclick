@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Loader2, Command } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 
 const placeholderExamples = [
   "Summarize my unread emails",
@@ -21,12 +22,18 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
     [],
   );
   const [prompt, setPrompt] = useState(initialPrompt || "");
+  const [prevInitialPrompt, setPrevInitialPrompt] = useState(initialPrompt);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [showResponse, setShowResponse] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const responseRef = useRef<HTMLDivElement>(null);
+
+  if (initialPrompt !== prevInitialPrompt) {
+    setPrevInitialPrompt(initialPrompt);
+    setPrompt(initialPrompt || "");
+  }
 
   // Rotate placeholder text
   useEffect(() => {
@@ -48,10 +55,9 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  // If initialPrompt changes (from AI action click), update prompt
+  // If initialPrompt changes (from AI action click), focus the input
   useEffect(() => {
     if (initialPrompt) {
-      setPrompt(initialPrompt);
       inputRef.current?.focus();
     }
   }, [initialPrompt]);
@@ -203,8 +209,70 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
                   </span>
                 )}
               </div>
-              <div className="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed">
-                {msg.content}
+              <div className="text-sm text-foreground/80 leading-relaxed">
+                {msg.role === "assistant" ? (
+                  <ReactMarkdown
+                    components={{
+                      p: ({ children }) => (
+                        <p className="mb-2 last:mb-0">{children}</p>
+                      ),
+                      ul: ({ children }) => (
+                        <ul className="list-disc pl-5 mb-2 space-y-1">
+                          {children}
+                        </ul>
+                      ),
+                      ol: ({ children }) => (
+                        <ol className="list-decimal pl-5 mb-2 space-y-1">
+                          {children}
+                        </ol>
+                      ),
+                      li: ({ children }) => (
+                        <li className="text-sm">{children}</li>
+                      ),
+                      strong: ({ children }) => (
+                        <strong className="font-semibold text-foreground">
+                          {children}
+                        </strong>
+                      ),
+                      em: ({ children }) => (
+                        <em className="italic">{children}</em>
+                      ),
+                      a: ({ href, children }) => (
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline font-semibold"
+                        >
+                          {children}
+                        </a>
+                      ),
+                      code({ className, children, ...props }) {
+                        const match = /language-(\w+)/.exec(className || "");
+                        const inline =
+                          !match && !String(children).includes("\n");
+                        return inline ? (
+                          <code
+                            className="bg-muted/80 px-1.5 py-0.5 rounded font-mono text-xs text-primary font-medium"
+                            {...props}
+                          >
+                            {children}
+                          </code>
+                        ) : (
+                          <pre className="bg-black/30 border border-border/50 p-3.5 rounded-xl font-mono text-xs overflow-x-auto my-3 text-foreground/90 w-full">
+                            <code className={className} {...props}>
+                              {children}
+                            </code>
+                          </pre>
+                        );
+                      },
+                    }}
+                  >
+                    {msg.content}
+                  </ReactMarkdown>
+                ) : (
+                  <div className="whitespace-pre-wrap">{msg.content}</div>
+                )}
               </div>
             </div>
           ))}
@@ -215,7 +283,7 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
                 <Loader2 className="size-3 text-primary animate-spin" />
               </div>
               <span className="text-xs text-muted-foreground">
-                ZeroClick is thinking...
+                Mr. Zero is thinking...
               </span>
             </div>
           )}

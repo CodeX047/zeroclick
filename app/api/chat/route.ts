@@ -25,7 +25,13 @@ export async function POST(req: Request) {
       throw e;
     }
 
-    const { messages, prompt } = await req.json();
+    const { messages, prompt, timezone = "UTC" } = await req.json();
+    let localTimeStr = "";
+    try {
+      localTimeStr = new Date().toLocaleString("en-US", { timeZone: timezone });
+    } catch {
+      localTimeStr = new Date().toLocaleString("en-US", { timeZone: "UTC" });
+    }
     let inputMessages = messages || [{ role: "user", content: prompt }];
 
     // Workaround for @openai/agents SDK bug with assistant message formatting
@@ -278,6 +284,122 @@ export async function POST(req: Request) {
             return {
               success: false,
               userMessage: "Your Google Calendar isn't connected yet.",
+            };
+          }
+        },
+      }),
+      tool({
+        name: "checkCalendarConflicts",
+        description:
+          "Check if there are any conflicting calendar events for a given time range. Returns conflicts and alternative open slots on the same day if conflicts exist.",
+        parameters: z.object({
+          startDateTime: z
+            .string()
+            .describe("The start date and time as an ISO 8601 string."),
+          endDateTime: z
+            .string()
+            .describe("The end date and time as an ISO 8601 string."),
+        }),
+        execute: async ({ startDateTime, endDateTime }) => {
+          console.info("checkCalendarConflicts called with:", startDateTime, endDateTime);
+          try {
+            const start = new Date(startDateTime);
+            const end = new Date(endDateTime);
+
+            if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+              console.warn("checkCalendarConflicts: Invalid date format");
+              return { success: false, userMessage: "Invalid date format." };
+            }
+
+            const requestedStart = start.getTime();
+            const requestedEnd = end.getTime();
+            const duration = requestedEnd - requestedStart;
+
+            // Query from 12 hours before to 12 hours after the requested time to avoid timezone shift issues
+            const queryMin = new Date(requestedStart - 12 * 60 * 60 * 1000);
+            const queryMax = new Date(requestedEnd + 12 * 60 * 60 * 1000);
+
+            const res = await tenant.googlecalendar.api.events.getMany({
+              calendarId: "primary",
+              timeMin: queryMin.toISOString(),
+              timeMax: queryMax.toISOString(),
+              singleEvents: true,
+              orderBy: "startTime",
+            });
+
+            const conflicts = [];
+            const busyRanges: { start: number; end: number }[] = [];
+
+            if (res.items) {
+              for (const event of res.items) {
+                const eventStartStr = event.start?.dateTime || event.start?.date;
+                const eventEndStr = event.end?.dateTime || event.end?.date;
+                if (!eventStartStr || !eventEndStr) continue;
+
+                const eventStart = new Date(eventStartStr).getTime();
+                const eventEnd = new Date(eventEndStr).getTime();
+
+                busyRanges.push({ start: eventStart, end: eventEnd });
+
+                // Check for overlap
+                if (eventStart < requestedEnd && eventEnd > requestedStart) {
+                  conflicts.push({
+                    summary: event.summary || "Untitled Event",
+                    start: eventStartStr,
+                    end: eventEndStr,
+                  });
+                }
+              }
+            }
+
+            console.info("checkCalendarConflicts: conflicts found:", conflicts.length);
+
+            if (conflicts.length === 0) {
+              return { success: true, hasConflict: false };
+            }
+
+            // Find at least 3 alternative slots on the same day
+            let latestConflictEnd = requestedEnd;
+            for (const c of conflicts) {
+              const cEnd = new Date(c.end).getTime();
+              if (cEnd > latestConflictEnd) {
+                latestConflictEnd = cEnd;
+              }
+            }
+
+            const alternatives = [];
+            let candidateStart = latestConflictEnd;
+            const searchLimit = requestedEnd + 12 * 60 * 60 * 1000;
+
+            while (alternatives.length < 3 && candidateStart < searchLimit) {
+              const candidateEnd = candidateStart + duration;
+              const hasOverlap = busyRanges.some(
+                (r) => candidateStart < r.end && candidateEnd > r.start
+              );
+
+              if (!hasOverlap) {
+                alternatives.push({
+                  start: new Date(candidateStart).toISOString(),
+                  end: new Date(candidateEnd).toISOString(),
+                });
+              }
+
+              candidateStart += Math.max(30 * 60 * 1000, duration);
+            }
+
+            console.info("checkCalendarConflicts alternatives:", alternatives);
+
+            return {
+              success: true,
+              hasConflict: true,
+              conflicts,
+              alternatives,
+            };
+          } catch (error: unknown) {
+            console.error("Error in checkCalendarConflicts:", error);
+            return {
+              success: false,
+              userMessage: "Failed to check calendar conflicts.",
             };
           }
         },
@@ -555,12 +677,13 @@ For broad summaries and dashboards, getUpcomingEvents (cached data) is acceptabl
 
 For "summarize my emails" type requests: fetch emails, then write a concise summary.
 For "show my meetings" type requests: use getUpcomingEvents, then format them clearly.
-For "schedule a meeting" type requests: call createCalendarEvent. If missingFields is returned, ask the user.
+For "schedule a meeting" type requests: ALWAYS call checkCalendarConflicts first. If there are no conflicts, ask for confirmation before calling createCalendarEvent. If missingFields is returned, ask the user.
 For "send an email" type requests: call sendEmail. If missingFields is returned, ask the user.
 
 SAFETY & CONFIRMATION RULES (STRICTLY ENFORCED):
 1. NO DESTRUCTIVE ACTIONS: You must NEVER delete, wipe, or clear emails, calendar events, or any user data. If asked to perform such dangerous tasks, firmly decline.
-2. CONFIRM BEFORE SENDING/CREATING: Before calling the \`sendEmail\` or \`createCalendarEvent\` tools, you MUST explicitly ask the user for confirmation. 
+2. CONFLICT CHECKING: Before calling createCalendarEvent or rescheduleCalendarEvent, you MUST always call checkCalendarConflicts first. Do NOT output intermediate messages like "Let me check for conflicts first" or wait for a second turn. Run the checkCalendarConflicts tool immediately, wait for its output, and report the conflict details (including the title and time of the conflicting meeting) along with alternative slots in your very first response. Do NOT ask for confirmation of the original conflicting time.
+3. CONFIRM BEFORE SENDING/CREATING: Before calling the \`sendEmail\` or \`createCalendarEvent\` tools (or requesting the user to confirm a slot), you MUST explicitly ask the user for confirmation. 
 
 You MUST output ALL your final responses in strictly valid JSON format.
 Your output must exactly match this JSON structure:
@@ -576,7 +699,7 @@ Your output must exactly match this JSON structure:
 Do not include any markdown backticks around your JSON output. Just output the raw JSON object.
 
 Keep responses short, polite, user-friendly, and action-oriented.
-Today's date is ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}.`,
+Today's date and time is ${localTimeStr} in the user's local timezone (${timezone}). When the user specifies times or dates, ALWAYS assume they are referring to this local timezone (${timezone}). When calling tools, generate ISO 8601 strings that correctly match the user's local offset for ${timezone} (e.g. +05:30 or -04:00) so calendar slots are aligned.`,
       tools,
     });
 

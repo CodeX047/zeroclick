@@ -142,7 +142,11 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ messages: newMessages, prompt }),
+        body: JSON.stringify({
+          messages: newMessages,
+          prompt,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        }),
       });
 
       const data = await res.json();
@@ -188,7 +192,11 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages, prompt: responseMsg }),
+        body: JSON.stringify({
+          messages: newMessages,
+          prompt: responseMsg,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        }),
       });
 
       const data = await res.json();

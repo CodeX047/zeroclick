@@ -1,36 +1,79 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ZeroClick
 
-## Getting Started
+ZeroClick is a unified, AI-powered command center that brings **Gmail** and **Google Calendar** together into one keyboard-first, intelligent interface. Instead of clicking through tabs and manually copying information, users can manage their inbox, draft responses, schedule events, check conflicts, and trigger workflows instantly.
 
-First, run the development server:
+Live Website: [https://zeroclick-xi.vercel.app](https://zeroclick-xi.vercel.app)
+
+Special thanks to [Corsair](https://corsair.dev/) for providing the integration SDK that connects Gmail and Google Calendar to our AI engine. It was a huge help in building this project!
+
+---
+
+## Key Features
+
+- **Intelligent Command Bar**  
+  An interactive, command-line interface powered by Gemini to handle natural language commands (e.g., _"Summarize my unread emails"_ or _"Schedule a meeting tomorrow at 11 AM"_).
+
+- **Google Calendar Conflict Detection**  
+  Automatic checking of calendar conflicts before booking new events. If there is an overlap, the AI automatically computes and suggests three alternative free slots.
+
+- **Spacious Email Inbox & Full Body Preview**  
+  Browse emails in a list sorted chronologically and view their full HTML or plain text bodies inside an isolated, theme-aware sandboxed iframe.
+
+- **AI Suggestion Pills**  
+  Quickly click actions on any selected email inside the preview panel (e.g., **Summarize**, **Reply**, **Create Meeting**) to get instant AI-generated drafts and details.
+
+- **Interactive Full Calendar Panel**  
+  Upgrade over static calendar UIs supporting **Month**, **Week**, and **Day** views, calendar navigation controls (Prev, Next, Today), and timezone-safe, absolute-positioned event rendering.
+
+- **Google Verification Compliant**  
+  Public-facing, detailed **Privacy Policy** (`/privacy`) and **Terms of Service** (`/terms`) linked across sign-in/sign-up pages and landing footers.
+
+- **Secure Authentication & Management**  
+  Integrated authentication via Clerk. Includes secure Sign Out controls directly in the settings panel.
+
+---
+
+## Tech Stack
+
+- **Frontend Framework:** Next.js (App Router)
+- **Styling:** Tailwind CSS (Vanilla CSS & utility components)
+- **Authentication:** Clerk
+- **API Integrations:** Google Workspace API via Corsair SDK
+- **UI Icons:** Lucide React
+- **Markdown Rendering:** React Markdown
+
+---
+
+## Local Development
+
+### 1. Prerequisites
+
+Ensure you have Node.js and `pnpm` installed on your machine. You will also need a `.env` file in the root directory containing your API credentials (Clerk publishable keys, secret keys, Corsair variables, etc.).
+
+### 2. Install Dependencies
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Run the Development Server
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+pnpm dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Open [http://localhost:3000](http://localhost:3000) in your browser to view the application.
 
-## Learn More
+### 4. Build for Production
 
-To learn more about Next.js, take a look at the following resources:
+To build the optimized production bundle:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+pnpm build
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+To run the built production code locally:
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+pnpm start
+```

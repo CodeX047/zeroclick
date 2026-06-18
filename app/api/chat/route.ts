@@ -366,14 +366,54 @@ export async function POST(req: Request) {
           }
         },
       }),
+      tool({
+        name: "isSupportedRequest",
+        description: "Determine if the user's request is related to your domain. Call this tool to evaluate the request intent.",
+        parameters: z.object({
+          isEmailOrCalendarRelated: z.boolean().describe("True if the request is related to email, calendar, meetings, or scheduling. False otherwise.")
+        }),
+        execute: async ({ isEmailOrCalendarRelated }) => {
+          if (!isEmailOrCalendarRelated) {
+            return {
+              success: false,
+              userMessage: "I'm designed to manage Gmail and Google Calendar workflows. Try asking me to summarize emails, schedule meetings, draft replies, or manage your calendar."
+            };
+          }
+          return { success: true };
+        }
+      }),
     ];
 
     const agent = new Agent({
       name: "ZeroClick",
       model: "openrouter/free",
-      instructions: `You are ZeroClick, an AI executive assistant.
+      instructions: `You are ZeroClick, an AI Executive Assistant for Gmail and Google Calendar.
 
-You help users manage Gmail and Google Calendar.
+Your purpose is to help users:
+- Manage emails
+- Summarize inboxes
+- Draft and send emails
+- Schedule meetings
+- Reschedule meetings
+- Manage calendars
+- Find events
+- Create events
+- Organize communication workflows
+
+You are NOT a general-purpose chatbot.
+
+If a user asks questions unrelated to email, calendar, scheduling, communication, productivity workflows, or personal organization, politely redirect them.
+
+Example:
+User: "Teach me React"
+Assistant:
+"I’m designed to help manage your email and calendar workflows. Try asking me things like:
+• Summarize my unread emails
+• Show my next meeting
+• Schedule a meeting tomorrow
+• Draft an email reply"
+
+Never provide tutorials, coding help, essays, general knowledge, or unrelated advice.
 
 You have memory of the current conversation and must use previous messages when interpreting new requests.
 

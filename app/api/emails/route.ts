@@ -3,6 +3,47 @@ import { NextResponse } from "next/server";
 import { corsair } from "@/server/corsair";
 import { checkAndIncrementUsage, LimitReachedError } from "@/server/usage";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getEmailBody(payload: any): { body: string; isHtml: boolean } {
+  if (!payload) return { body: "", isHtml: false };
+
+  // If the body is directly in this part
+  if (payload.body && payload.body.data) {
+    try {
+      const base64 = payload.body.data.replace(/-/g, "+").replace(/_/g, "/");
+      const bodyText = Buffer.from(base64, "base64").toString("utf-8");
+      return { body: bodyText, isHtml: payload.mimeType === "text/html" };
+    } catch (e) {
+      console.error("Error decoding body:", e);
+    }
+  }
+
+  // Recursive search
+  if (payload.parts && Array.isArray(payload.parts)) {
+    // 1. Search for HTML
+    for (const part of payload.parts) {
+      if (part.mimeType === "text/html") {
+        const result = getEmailBody(part);
+        if (result.body) return result;
+      }
+    }
+    // 2. Search for plain text
+    for (const part of payload.parts) {
+      if (part.mimeType === "text/plain") {
+        const result = getEmailBody(part);
+        if (result.body) return result;
+      }
+    }
+    // 3. Fallback search
+    for (const part of payload.parts) {
+      const result = getEmailBody(part);
+      if (result.body) return result;
+    }
+  }
+
+  return { body: "", isHtml: false };
+}
+
 export async function GET() {
   try {
     const user = await currentUser();
@@ -74,6 +115,8 @@ export async function GET() {
         time = dateObj.toLocaleDateString([], { month: 'short', day: 'numeric' });
       }
 
+      const bodyDetails = getEmailBody(msg.payload);
+
       return {
         id: item.entity_id || item.id || msg.id,
         sender,
@@ -81,6 +124,8 @@ export async function GET() {
         senderColor,
         subject: msg.subject || "No Subject",
         snippet: msg.snippet || "",
+        body: bodyDetails.body || msg.snippet || "",
+        isHtml: bodyDetails.isHtml,
         time,
         unread: msg.labelIds ? msg.labelIds.includes("UNREAD") : false,
         important: msg.labelIds ? msg.labelIds.includes("IMPORTANT") : false,

@@ -137,7 +137,7 @@ export function DashboardLayout() {
             
             {activeItem === "Inbox" && (
               <>
-                <div className="flex-[65] min-w-0 min-h-[600px]">
+                <div className="flex-[58] min-w-0 min-h-[600px]">
                   <InboxPanel 
                     emails={emails} 
                     loading={loadingEmails} 
@@ -147,7 +147,7 @@ export function DashboardLayout() {
                     onSelectEmail={handleEmailSelect}
                   />
                 </div>
-                <div className="flex-[35] min-w-[280px] max-w-[400px] space-y-5 hidden lg:block">
+                <div className="flex-[42] min-w-[320px] max-w-[480px] space-y-5 hidden lg:block">
                   <EmailPreviewPanel email={selectedEmail} />
                 </div>
               </>

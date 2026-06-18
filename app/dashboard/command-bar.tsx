@@ -125,6 +125,15 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
     }
   }, [initialPrompt]);
 
+  const handleClearChat = () => {
+    setMessages([]);
+    setError("");
+    setShowResponse(false);
+    sessionStorage.removeItem("zeroclick_chat_messages");
+    sessionStorage.removeItem("zeroclick_chat_showResponse");
+    sessionStorage.removeItem("zeroclick_chat_timestamp");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim()) return;
@@ -328,6 +337,20 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
         </div>
       ) : (
         <>
+          <div className="flex items-center justify-between pb-3 mb-2 border-b border-border/45 shrink-0">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Conversation History</span>
+            <button
+              onClick={handleClearChat}
+              className="text-xs text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-destructive/5 border border-border/50 hover:border-destructive/20 cursor-pointer"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-3">
+                <path d="M3 6h18"></path>
+                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+              </svg>
+              Clear Chat
+            </button>
+          </div>
           <div className="flex-1 overflow-y-auto space-y-4 pb-4 scrollbar-thin">
             {/* ── Error ────────────────────────────────────── */}
             {error && (

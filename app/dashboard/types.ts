@@ -9,6 +9,8 @@ export interface Email {
   unread: boolean;
   important: boolean;
   starred: boolean;
+  body?: string;
+  isHtml?: boolean;
 }
 
 export interface CalendarEvent {

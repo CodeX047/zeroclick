@@ -38,9 +38,14 @@ export default function Pricing() {
               <hr className="border-dashed" />
 
               <ul className="list-outside space-y-3 text-sm">
-                {["Command palette", "Limited runs/day"].map((item, index) => (
+                {[
+                  "5 AI Chats / day",
+                  "30 Email syncs / day",
+                  "30 Calendar syncs / day",
+                  "Essential Command palette",
+                ].map((item, index) => (
                   <li key={index} className="flex items-center gap-2">
-                    <Check className="size-3" />
+                    <Check className="size-3 text-primary" />
                     {item}
                   </li>
                 ))}
@@ -49,7 +54,7 @@ export default function Pricing() {
 
             <CardFooter className="mt-auto">
               <Button asChild variant="outline" className="w-full">
-                <Link href="">Get Started</Link>
+                <Link href="/sign-up">Get Started</Link>
               </Button>
             </CardFooter>
           </Card>
@@ -64,20 +69,23 @@ export default function Pricing() {
               <span className="my-3 block text-2xl font-semibold">
                 $19 / mo
               </span>
-              <CardDescription className="text-sm">Power users</CardDescription>
+              <CardDescription className="text-sm">
+                Power users demanding high limits
+              </CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-4">
               <hr className="border-dashed" />
               <ul className="list-outside space-y-3 text-sm">
                 {[
-                  "Everything in Free Plan",
-                  "Unlimited commands",
-                  "Priority inbox",
-                  "Meeting briefs",
+                  "50 AI Chats / day",
+                  "Unlimited Email syncs",
+                  "Unlimited Calendar syncs",
+                  "Priority email support",
+                  "Advanced conflict checking",
                 ].map((item, index) => (
                   <li key={index} className="flex items-center gap-2">
-                    <Check className="size-3" />
+                    <Check className="size-3 text-primary" />
                     {item}
                   </li>
                 ))}
@@ -86,19 +94,19 @@ export default function Pricing() {
 
             <CardFooter className="mt-auto">
               <Button asChild className="w-full">
-                <Link href="">Get Started</Link>
+                <Link href="/sign-up">Get Started</Link>
               </Button>
             </CardFooter>
           </Card>
 
           <Card className="flex flex-col">
             <CardHeader>
-              <CardTitle className="font-medium">Team</CardTitle>
+              <CardTitle className="font-medium">Ultimate</CardTitle>
               <span className="my-3 block text-2xl font-semibold">
                 $39 / mo
               </span>
               <CardDescription className="text-sm">
-                Teams coordinating meetings
+                Enterprise / unlimited volume
               </CardDescription>
             </CardHeader>
 
@@ -107,13 +115,13 @@ export default function Pricing() {
 
               <ul className="list-outside space-y-3 text-sm">
                 {[
-                  "Everything in Pro Plan",
-                  "Shared workflows",
-                  "Team groups",
-                  "Admin controls",
+                  "Unlimited AI Chats",
+                  "Unlimited Email syncs",
+                  "Unlimited Calendar syncs",
+                  "Dedicated 24/7 support",
                 ].map((item, index) => (
                   <li key={index} className="flex items-center gap-2">
-                    <Check className="size-3" />
+                    <Check className="size-3 text-primary" />
                     {item}
                   </li>
                 ))}
@@ -122,7 +130,7 @@ export default function Pricing() {
 
             <CardFooter className="mt-auto">
               <Button asChild variant="outline" className="w-full">
-                <Link href="">Get Started</Link>
+                <Link href="/sign-up">Get Started</Link>
               </Button>
             </CardFooter>
           </Card>

@@ -39,6 +39,27 @@ export function DashboardLayout() {
     }
   };
 
+  const forceSyncEmails = async () => {
+    setLoadingEmails(true);
+    setEmailsError("");
+    try {
+      // Force live sync from Google API to the Database
+      const syncRes = await fetch("/api/emails/sync", { method: "POST" });
+      if (!syncRes.ok) throw new Error("Failed to force sync");
+      
+      // Then fetch the freshly synced data from the Database
+      const res = await fetch("/api/emails");
+      if (!res.ok) throw new Error("Failed to fetch emails");
+      const data = await res.json();
+      setEmails(data.emails || []);
+    } catch (err: unknown) {
+      console.error(err);
+      setEmailsError("Could not sync emails.");
+    } finally {
+      setLoadingEmails(false);
+    }
+  };
+
   const fetchEvents = async () => {
     setLoadingEvents(true);
     setEventsError("");
@@ -121,7 +142,7 @@ export function DashboardLayout() {
                     emails={emails} 
                     loading={loadingEmails} 
                     error={emailsError} 
-                    onSync={fetchEmails}
+                    onSync={forceSyncEmails}
                     selectedEmailId={selectedEmail?.id || null}
                     onSelectEmail={handleEmailSelect}
                   />

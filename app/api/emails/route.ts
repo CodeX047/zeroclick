@@ -25,12 +25,23 @@ export async function GET() {
       throw e;
     }
 
-    // Fetch the latest emails
-    const data = await tenant.gmail.db.messages.search({ limit: 50 });
+    // Fetch a larger pool of emails from the DB to ensure we get the newest ones
+    const allData = await tenant.gmail.db.messages.search({ limit: 500 });
     
-    if (!data || data.length === 0) {
+    if (!allData || allData.length === 0) {
       return NextResponse.json({ emails: [] });
     }
+
+    // Sort chronologically by internalDate (or fallback to createdAt) in descending order
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    allData.sort((a: any, b: any) => {
+      const dateA = a.data?.internalDate ? Number(a.data.internalDate) : new Date(a.created_at || a.createdAt || 0).getTime();
+      const dateB = b.data?.internalDate ? Number(b.data.internalDate) : new Date(b.created_at || b.createdAt || 0).getTime();
+      return dateB - dateA;
+    });
+
+    // Take the 50 newest
+    const data = allData.slice(0, 50);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const emails = data.map((item: any) => {

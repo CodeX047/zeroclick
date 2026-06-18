@@ -27,9 +27,13 @@ export async function POST(req: NextRequest) {
     url.searchParams.get("tenant_id") ||
     undefined;
 
+  console.log("Webhook received:", req.url);
+  console.log("Tenant:", tenantId);
+
   let result;
   try {
     result = await processWebhook(corsair, headers, body, { tenantId });
+    console.log("Sync completed successfully for tenant:", tenantId);
   } catch (error: unknown) {
     console.warn("Webhook processing skipped:", error instanceof Error ? error.message : "Unknown error");
     return new NextResponse("Webhook skipped", { status: 200 });

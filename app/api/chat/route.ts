@@ -16,7 +16,7 @@ export async function POST(req: Request) {
       await checkAndIncrementUsage(
         user.id,
         user.emailAddresses[0]?.emailAddress || "unknown@zeroclick.app",
-        "ai_chat"
+        "ai_chat",
       );
     } catch (e) {
       if (e instanceof LimitReachedError) {
@@ -30,8 +30,18 @@ export async function POST(req: Request) {
 
     // Workaround for @openai/agents SDK bug with assistant message formatting
     if (messages && messages.length > 0) {
-      const historyStr = messages.map((m: { role: string; content: string }) => `${m.role === 'assistant' ? 'ZeroClick' : 'User'}: ${m.content}`).join('\n\n');
-      inputMessages = [{ role: "user", content: `[Conversation History]\n${historyStr}\n\n[End History]\n\nPlease respond to the User's last message.` }];
+      const historyStr = messages
+        .map(
+          (m: { role: string; content: string }) =>
+            `${m.role === "assistant" ? "ZeroClick" : "User"}: ${m.content}`,
+        )
+        .join("\n\n");
+      inputMessages = [
+        {
+          role: "user",
+          content: `[Conversation History]\n${historyStr}\n\n[End History]\n\nPlease respond to the User's last message.`,
+        },
+      ];
     }
 
     if (!inputMessages || inputMessages.length === 0) {
@@ -57,21 +67,41 @@ export async function POST(req: Request) {
         }),
         execute: async ({ limit }) => {
           try {
-            const data = await tenant.gmail.db.messages.search({ limit });
-            if (!data || data.length === 0)
-              return { success: true, emails: [] };
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const emails = data.map((item: any) => {
-              const msg = item.data || {};
-              return {
-                id: item.entity_id || item.id || msg.id,
-                subject: msg.subject || "No Subject",
-                sender: msg.from || "Unknown",
-                snippet: msg.snippet || "",
-                date:
-                  msg.createdAt || item.created_at || new Date().toISOString(),
-              };
+            const listRes = await tenant.gmail.api.messages.list({
+              userId: "me",
+              maxResults: limit,
             });
+            if (!listRes.messages || listRes.messages.length === 0)
+              return { success: true, emails: [] };
+
+            const emails = [];
+            for (const msg of listRes.messages) {
+              if (msg.id) {
+                const fullMsg = await tenant.gmail.api.messages.get({
+                  userId: "me",
+                  id: msg.id,
+                });
+                const headers = fullMsg.payload?.headers || [];
+                const subject =
+                  headers.find(
+                    (h: Record<string, unknown>) =>
+                      (h.name as string)?.toLowerCase() === "subject"
+                  )?.value || "No Subject";
+                const sender =
+                  headers.find(
+                    (h: Record<string, unknown>) =>
+                      (h.name as string)?.toLowerCase() === "from"
+                  )?.value || "Unknown";
+
+                emails.push({
+                  id: fullMsg.id,
+                  subject,
+                  sender,
+                  snippet: fullMsg.snippet || "",
+                  date: fullMsg.internalDate || "",
+                });
+              }
+            }
             return { success: true, emails };
           } catch (error: unknown) {
             console.error("Error in getLatestEmails tool:", error);
@@ -165,19 +195,21 @@ export async function POST(req: Request) {
       }),
       tool({
         name: "getLiveUpcomingEvents",
-        description: "Retrieve the user's upcoming calendar events using live API data. ALWAYS use this for rescheduling, canceling, or exact queries like 'next meeting'.",
+        description:
+          "Retrieve the user's upcoming calendar events using live API data. ALWAYS use this for rescheduling, canceling, or exact queries like 'next meeting'.",
         parameters: z.object({
           limit: z.number().optional().default(10),
         }),
         execute: async ({ limit }) => {
           try {
             const res = await tenant.googlecalendar.api.events.getMany({
-               timeMin: new Date().toISOString(),
-               singleEvents: true,
-               orderBy: "startTime",
-               maxResults: limit
+              timeMin: new Date().toISOString(),
+              singleEvents: true,
+              orderBy: "startTime",
+              maxResults: limit,
             });
-            if (!res || !res.items || res.items.length === 0) return { success: true, events: [] };
+            if (!res || !res.items || res.items.length === 0)
+              return { success: true, events: [] };
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const events = res.items.map((event: any) => {
@@ -187,54 +219,68 @@ export async function POST(req: Request) {
                 start: event.start?.dateTime || event.start?.date || "",
                 end: event.end?.dateTime || event.end?.date || "",
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                attendees: event.attendees ? event.attendees.map((a: any) => a.email).filter(Boolean) : []
+                attendees: event.attendees
+                  ? event.attendees.map((a: any) => a.email).filter(Boolean)
+                  : [],
               };
             });
             return { success: true, events };
           } catch (error: unknown) {
-             console.error("Error in getLiveUpcomingEvents:", error);
-             return { success: false, userMessage: "Your Google Calendar isn't connected yet." };
+            console.error("Error in getLiveUpcomingEvents:", error);
+            return {
+              success: false,
+              userMessage: "Your Google Calendar isn't connected yet.",
+            };
           }
-        }
+        },
       }),
       tool({
         name: "getNextMeeting",
-        description: "Get the absolute next upcoming meeting. Filters out past events and all-day events.",
+        description:
+          "Get the absolute next upcoming meeting. Filters out past events and all-day events.",
         parameters: z.object({}),
         execute: async () => {
           try {
             const res = await tenant.googlecalendar.api.events.getMany({
-               timeMin: new Date().toISOString(),
-               singleEvents: true,
-               orderBy: "startTime",
-               maxResults: 15
+              timeMin: new Date().toISOString(),
+              singleEvents: true,
+              orderBy: "startTime",
+              maxResults: 15,
             });
-            if (!res || !res.items || res.items.length === 0) return { success: true, event: null };
+            if (!res || !res.items || res.items.length === 0)
+              return { success: true, event: null };
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const nextMeeting = res.items.filter((e: any) => {
-               if (!e.start?.dateTime) return false;
-               return new Date(e.start.dateTime) > new Date();
+              if (!e.start?.dateTime) return false;
+              return new Date(e.start.dateTime) > new Date();
             })[0];
 
             if (!nextMeeting) return { success: true, event: null };
 
             return {
-               success: true,
-               event: {
-                  id: nextMeeting.id,
-                  summary: nextMeeting.summary || "Untitled",
-                  start: nextMeeting.start?.dateTime,
-                  end: nextMeeting.end?.dateTime,
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  attendees: nextMeeting.attendees ? nextMeeting.attendees.map((a: any) => a.email).filter(Boolean) : []
-               }
+              success: true,
+              event: {
+                id: nextMeeting.id,
+                summary: nextMeeting.summary || "Untitled",
+                start: nextMeeting.start?.dateTime,
+                end: nextMeeting.end?.dateTime,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                attendees: nextMeeting.attendees
+                  ? nextMeeting.attendees
+                      .map((a: any) => a.email)
+                      .filter(Boolean)
+                  : [],
+              },
             };
           } catch (error: unknown) {
-             console.error("Error in getNextMeeting:", error);
-             return { success: false, userMessage: "Your Google Calendar isn't connected yet." };
+            console.error("Error in getNextMeeting:", error);
+            return {
+              success: false,
+              userMessage: "Your Google Calendar isn't connected yet.",
+            };
           }
-        }
+        },
       }),
       tool({
         name: "sendEmail",
@@ -341,12 +387,26 @@ export async function POST(req: Request) {
       }),
       tool({
         name: "rescheduleCalendarEvent",
-        description: "Reschedule or modify an existing calendar event. You MUST have the eventId from getLiveUpcomingEvents or getNextMeeting.",
+        description:
+          "Reschedule or modify an existing calendar event. You MUST have the eventId from getLiveUpcomingEvents or getNextMeeting.",
         parameters: z.object({
           eventId: z.string().describe("The unique ID of the event to modify."),
-          summary: z.string().optional().describe("Brief title/summary of the meeting/event."),
-          startDateTime: z.string().optional().describe("The start date and time as an ISO 8601 string (e.g., '2026-06-18T10:00:00Z')."),
-          endDateTime: z.string().optional().describe("The end date and time as an ISO 8601 string (e.g., '2026-06-18T11:00:00Z')."),
+          summary: z
+            .string()
+            .optional()
+            .describe("Brief title/summary of the meeting/event."),
+          startDateTime: z
+            .string()
+            .optional()
+            .describe(
+              "The start date and time as an ISO 8601 string (e.g., '2026-06-18T10:00:00Z').",
+            ),
+          endDateTime: z
+            .string()
+            .optional()
+            .describe(
+              "The end date and time as an ISO 8601 string (e.g., '2026-06-18T11:00:00Z').",
+            ),
         }),
         execute: async ({ eventId, summary, startDateTime, endDateTime }) => {
           if (!eventId) return { success: false, missingFields: ["eventId"] };
@@ -366,8 +426,12 @@ export async function POST(req: Request) {
               event: {
                 ...existingEvent,
                 ...(summary && { summary }),
-                ...(startDateTime && { start: { ...existingEvent.start, dateTime: startDateTime } }),
-                ...(endDateTime && { end: { ...existingEvent.end, dateTime: endDateTime } }),
+                ...(startDateTime && {
+                  start: { ...existingEvent.start, dateTime: startDateTime },
+                }),
+                ...(endDateTime && {
+                  end: { ...existingEvent.end, dateTime: endDateTime },
+                }),
               },
             });
             return { success: true };
@@ -375,26 +439,33 @@ export async function POST(req: Request) {
             console.error("Error in rescheduleCalendarEvent:", error);
             return {
               success: false,
-              userMessage: "Failed to modify the event. Please ensure your calendar is connected.",
+              userMessage:
+                "Failed to modify the event. Please ensure your calendar is connected.",
             };
           }
         },
       }),
       tool({
         name: "isSupportedRequest",
-        description: "Determine if the user's request is related to your domain. Call this tool to evaluate the request intent.",
+        description:
+          "Determine if the user's request is related to your domain. Call this tool to evaluate the request intent.",
         parameters: z.object({
-          isEmailOrCalendarRelated: z.boolean().describe("True if the request is related to email, calendar, meetings, or scheduling. False otherwise.")
+          isEmailOrCalendarRelated: z
+            .boolean()
+            .describe(
+              "True if the request is related to email, calendar, meetings, or scheduling. False otherwise.",
+            ),
         }),
         execute: async ({ isEmailOrCalendarRelated }) => {
           if (!isEmailOrCalendarRelated) {
             return {
               success: false,
-              userMessage: "I'm designed to manage Gmail and Google Calendar workflows. Try asking me to summarize emails, schedule meetings, draft replies, or manage your calendar."
+              userMessage:
+                "I'm designed to manage Gmail and Google Calendar workflows. Try asking me to summarize emails, schedule meetings, draft replies, or manage your calendar.",
             };
           }
           return { success: true };
-        }
+        },
       }),
     ];
 
@@ -429,7 +500,7 @@ Assistant:
 
 Never provide tutorials, coding help, essays, general knowledge, or unrelated advice.
 
-You have memory of the current conversation and must use previous messages when interpreting new requests.
+You have memory of the current conversation and must use previous messages when interpreting new requests. BUT IMPORTANTLY: If a user asks for their "latest" emails or calendar events, ALWAYS call your tools to fetch the freshest data. Do NOT rely on the conversation history for latest data, as their inbox may have changed in the meantime!
 
 When information is missing:
 * Ask only for missing information.
@@ -464,8 +535,8 @@ If a tool returns missingFields, politely ask the user to provide the missing fi
 If Gmail is not connected:
 "Your Gmail account isn't connected yet. Connect Gmail to summarize emails, draft replies, and send messages."
 
-If Calendar is not connected:
-"Your Google Calendar isn't connected yet. Connect Calendar to schedule meetings and manage events."
+If Google Calendar is not connected:
+"Your Google Calendar isn't connected yet. Connect Calendar to schedule meetings, find events, and manage your time."
 
 Never discuss APIs, SDKs, MCP servers, OAuth tokens, operation IDs, databases, or implementation details.
 
@@ -514,28 +585,39 @@ Today's date is ${new Date().toLocaleDateString("en-US", { weekday: "long", year
     const result = await run(agent, inputMessages as any);
 
     if (!result.finalOutput) {
-      return NextResponse.json({ response: "I'm sorry, I couldn't generate a response." });
+      return NextResponse.json({
+        response: "I'm sorry, I couldn't generate a response.",
+      });
     }
 
     let parsedResponse;
     let pendingAction;
     try {
-      const cleanOutput = result.finalOutput.replace(/^```(?:json)?\n?/, '').replace(/```$/, '').trim();
+      const cleanOutput = result.finalOutput
+        .replace(/^```(?:json)?\n?/, "")
+        .replace(/```$/, "")
+        .trim();
       const data = JSON.parse(cleanOutput);
-      
+
       if (data.name && data.arguments) {
         // The model leaked a raw tool call instead of formatting properly
-        parsedResponse = "I'm having trouble connecting to that service right now. Please try again.";
+        parsedResponse =
+          "I'm having trouble connecting to that service right now. Please try again.";
       } else if (data.response) {
         parsedResponse = data.response;
         pendingAction = data.pendingAction;
       } else {
-        parsedResponse = "I processed your request, but I couldn't generate a proper response.";
+        parsedResponse =
+          "I processed your request, but I couldn't generate a proper response.";
       }
     } catch {
       parsedResponse = result.finalOutput;
-      if (parsedResponse.includes('"name":') && parsedResponse.includes('"arguments":')) {
-        parsedResponse = "I'm having trouble connecting to that service right now. Please try again.";
+      if (
+        parsedResponse.includes('"name":') &&
+        parsedResponse.includes('"arguments":')
+      ) {
+        parsedResponse =
+          "I'm having trouble connecting to that service right now. Please try again.";
       }
     }
 
@@ -543,7 +625,10 @@ Today's date is ${new Date().toLocaleDateString("en-US", { weekday: "long", year
   } catch (error: unknown) {
     console.error("Agent Error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to process request" },
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to process request",
+      },
       { status: 500 },
     );
   }

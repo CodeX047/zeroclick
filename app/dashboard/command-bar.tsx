@@ -17,9 +17,21 @@ interface CommandBarProps {
   initialPrompt?: string;
 }
 
+type PendingAction = {
+  type: string;
+  to?: string;
+  subject?: string;
+  body?: string;
+  summary?: string;
+  start?: string;
+  end?: string;
+  completed?: boolean;
+  [key: string]: unknown;
+};
+
 export function CommandBar({ initialPrompt }: CommandBarProps) {
   const [messages, setMessages] = useState<
-    { role: string; content: string; pendingAction?: any }[]
+    { role: string; content: string; pendingAction?: PendingAction }[]
   >([]);
   const [prompt, setPrompt] = useState(initialPrompt || "");
   const [prevInitialPrompt, setPrevInitialPrompt] = useState(initialPrompt);
@@ -30,7 +42,8 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
   const [isHydrated, setIsHydrated] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const responseRef = useRef<HTMLDivElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const messagesEndRef = useRef<any>(null);
 
   // Load chat history from sessionStorage on mount
   useEffect(() => {
@@ -48,11 +61,15 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
 
     if (shouldLoad && savedMessages) {
       try {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setMessages(JSON.parse(savedMessages));
         if (savedShowResponse) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
           setShowResponse(savedShowResponse === "true");
         }
-      } catch (e) {}
+      } catch {
+        console.error("Failed to parse saved messages");
+      }
     } else {
       sessionStorage.removeItem("zeroclick_chat_messages");
       sessionStorage.removeItem("zeroclick_chat_showResponse");
@@ -148,8 +165,20 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
     }
   };
 
-  const handleActionResponse = async (responseMsg: string) => {
-    const newMessages = [...messages, { role: "user", content: responseMsg }];
+  const handleActionResponse = async (responseMsg: string, messageIndex: number) => {
+    const updatedMessages = [...messages];
+    if (updatedMessages[messageIndex].pendingAction) {
+      updatedMessages[messageIndex] = {
+        ...updatedMessages[messageIndex],
+        pendingAction: {
+          ...updatedMessages[messageIndex].pendingAction!,
+          type: updatedMessages[messageIndex].pendingAction!.type,
+          completed: true,
+        },
+      };
+    }
+
+    const newMessages = [...updatedMessages, { role: "user", content: responseMsg }];
     setMessages(newMessages);
     setLoading(true);
     setError("");
@@ -446,7 +475,7 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
                                     </span>{" "}
                                     <span className="font-medium text-foreground">
                                       {new Date(
-                                        msg.pendingAction.start,
+                                        msg.pendingAction.start!,
                                       ).toLocaleString()}
                                     </span>
                                   </div>
@@ -456,7 +485,7 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
                                     </span>{" "}
                                     <span className="font-medium text-foreground">
                                       {new Date(
-                                        msg.pendingAction.end,
+                                        msg.pendingAction.end!,
                                       ).toLocaleString()}
                                     </span>
                                   </div>
@@ -466,9 +495,10 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
                               <div className="flex items-center gap-3">
                                 <button
                                   onClick={() =>
-                                    handleActionResponse("Yes, execute it.")
+                                    handleActionResponse("Yes, execute it.", i)
                                   }
-                                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors cursor-pointer"
+                                  disabled={msg.pendingAction.completed || loading}
+                                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   {msg.pendingAction.type === "email"
                                     ? "Send"
@@ -476,9 +506,10 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
                                 </button>
                                 <button
                                   onClick={() =>
-                                    handleActionResponse("Cancel action.")
+                                    handleActionResponse("Cancel action.", i)
                                   }
-                                  className="px-4 py-2 bg-muted text-foreground rounded-lg text-sm font-medium hover:bg-muted/80 transition-colors cursor-pointer"
+                                  disabled={msg.pendingAction.completed || loading}
+                                  className="px-4 py-2 bg-muted text-foreground rounded-lg text-sm font-medium hover:bg-muted/80 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   Cancel
                                 </button>

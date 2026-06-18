@@ -67,7 +67,7 @@ export async function checkAndIncrementUsage(
   }
 
   // Increment usage
-  const updateData: any = {};
+  const updateData: Record<string, number> = {};
   if (type === "ai_chat") updateData.aiChats = currentCount + 1;
   else if (type === "email_sync") updateData.emailSyncs = currentCount + 1;
   else if (type === "calendar_sync") updateData.calendarSyncs = currentCount + 1;

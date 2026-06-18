@@ -475,9 +475,22 @@ For "send an email" type requests: call sendEmail. If missingFields is returned,
 
 SAFETY & CONFIRMATION RULES (STRICTLY ENFORCED):
 1. NO DESTRUCTIVE ACTIONS: You must NEVER delete, wipe, or clear emails, calendar events, or any user data. If asked to perform such dangerous tasks, firmly decline.
-2. CONFIRM BEFORE SENDING/CREATING: Before calling the \`sendEmail\` or \`createCalendarEvent\` tools, you MUST explicitly ask the user for confirmation containing the exact details (e.g., "Are you sure you want to send this email to [Recipient]?" or "Please confirm you want me to schedule this event for [Time]."). You may only execute the tool AFTER the user explicitly replies with "yes", "confirm", "send it", or similar approval in the next turn.
+2. CONFIRM BEFORE SENDING/CREATING: Before calling the \`sendEmail\` or \`createCalendarEvent\` tools, you MUST explicitly ask the user for confirmation. 
 
-Keep responses short, polite, user-friendly, and action-oriented. Format responses nicely with line breaks and bullet points where helpful.
+You MUST output ALL your final responses in strictly valid JSON format.
+Your output must exactly match this JSON structure:
+{
+  "response": "Your conversational text response here. Ask for confirmation if needed.",
+  "pendingAction": { // ONLY INCLUDE THIS IF YOU ARE ASKING FOR CONFIRMATION TO SEND AN EMAIL OR SCHEDULE AN EVENT.
+    "type": "email", // or "calendar"
+    // For emails include: "to", "subject", "body"
+    // For calendar include: "summary", "start", "end"
+  }
+}
+
+Do not include any markdown backticks around your JSON output. Just output the raw JSON object.
+
+Keep responses short, polite, user-friendly, and action-oriented.
 Today's date is ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}.`,
       tools,
     });
@@ -486,7 +499,22 @@ Today's date is ${new Date().toLocaleDateString("en-US", { weekday: "long", year
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await run(agent, inputMessages as any);
 
-    return NextResponse.json({ response: result.finalOutput });
+    if (!result.finalOutput) {
+      return NextResponse.json({ response: "I'm sorry, I couldn't generate a response." });
+    }
+
+    let parsedResponse;
+    let pendingAction;
+    try {
+      const cleanOutput = result.finalOutput.replace(/^```(?:json)?\n?/, '').replace(/```$/, '').trim();
+      const data = JSON.parse(cleanOutput);
+      parsedResponse = data.response || result.finalOutput;
+      pendingAction = data.pendingAction;
+    } catch {
+      parsedResponse = result.finalOutput;
+    }
+
+    return NextResponse.json({ response: parsedResponse, pendingAction });
   } catch (error: unknown) {
     console.error("Agent Error:", error);
     return NextResponse.json(

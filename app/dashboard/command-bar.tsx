@@ -18,17 +18,63 @@ interface CommandBarProps {
 }
 
 export function CommandBar({ initialPrompt }: CommandBarProps) {
-  const [messages, setMessages] = useState<{ role: string; content: string }[]>(
-    [],
-  );
+  const [messages, setMessages] = useState<
+    { role: string; content: string; pendingAction?: any }[]
+  >([]);
   const [prompt, setPrompt] = useState(initialPrompt || "");
   const [prevInitialPrompt, setPrevInitialPrompt] = useState(initialPrompt);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [showResponse, setShowResponse] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const responseRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Load chat history from sessionStorage on mount
+  useEffect(() => {
+    const savedMessages = sessionStorage.getItem("zeroclick_chat_messages");
+    const savedShowResponse = sessionStorage.getItem("zeroclick_chat_showResponse");
+    const savedTimestamp = sessionStorage.getItem("zeroclick_chat_timestamp");
+    
+    let shouldLoad = false;
+    if (savedTimestamp) {
+      const age = Date.now() - parseInt(savedTimestamp, 10);
+      if (age < 30 * 60 * 1000) { // 30 minutes expiry
+        shouldLoad = true;
+      }
+    }
+
+    if (shouldLoad && savedMessages) {
+      try {
+        setMessages(JSON.parse(savedMessages));
+        if (savedShowResponse) {
+          setShowResponse(savedShowResponse === "true");
+        }
+      } catch (e) {}
+    } else {
+      sessionStorage.removeItem("zeroclick_chat_messages");
+      sessionStorage.removeItem("zeroclick_chat_showResponse");
+      sessionStorage.removeItem("zeroclick_chat_timestamp");
+    }
+    setIsHydrated(true);
+  }, []);
+
+  // Save chat history to sessionStorage whenever it changes
+  useEffect(() => {
+    if (isHydrated) {
+      sessionStorage.setItem("zeroclick_chat_messages", JSON.stringify(messages));
+      sessionStorage.setItem("zeroclick_chat_showResponse", String(showResponse));
+      sessionStorage.setItem("zeroclick_chat_timestamp", String(Date.now()));
+    }
+  }, [messages, showResponse, isHydrated]);
+  // Auto-scroll to bottom of thread
+  useEffect(() => {
+    if (showResponse) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, loading, showResponse]);
 
   if (initialPrompt !== prevInitialPrompt) {
     setPrevInitialPrompt(initialPrompt);
@@ -89,7 +135,45 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
 
       setMessages([
         ...newMessages,
-        { role: "assistant", content: data.response },
+        {
+          role: "assistant",
+          content: data.response,
+          pendingAction: data.pendingAction,
+        },
+      ]);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleActionResponse = async (responseMsg: string) => {
+    const newMessages = [...messages, { role: "user", content: responseMsg }];
+    setMessages(newMessages);
+    setLoading(true);
+    setError("");
+    setShowResponse(true);
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: newMessages, prompt: responseMsg }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to fetch response");
+      }
+
+      setMessages([
+        ...newMessages,
+        {
+          role: "assistant",
+          content: data.response,
+          pendingAction: data.pendingAction,
+        },
       ]);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -99,7 +183,10 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
   };
 
   const renderForm = (isCentered: boolean = false) => (
-    <form onSubmit={handleSubmit} className={`relative group w-full ${isCentered ? "max-w-2xl mx-auto" : ""}`}>
+    <form
+      onSubmit={handleSubmit}
+      className={`relative group w-full ${isCentered ? "max-w-2xl mx-auto" : ""}`}
+    >
       {/* Glow effect */}
       <div className="absolute -inset-1 bg-gradient-to-r from-primary/30 via-primary/15 to-primary/30 rounded-2xl blur-lg opacity-0 group-focus-within:opacity-100 transition-all duration-700" />
       <div className="absolute -inset-0.5 bg-primary/10 rounded-2xl blur opacity-0 group-focus-within:opacity-60 transition-all duration-500" />
@@ -171,17 +258,33 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
           <h1 className="text-[40px] font-semibold tracking-tight text-foreground mb-8">
             ZeroClick
           </h1>
-          <div className="w-full">
-            {renderForm(true)}
-          </div>
+          <div className="w-full">{renderForm(true)}</div>
           <div className="flex flex-wrap items-center justify-center gap-3 mt-8">
-            <button onClick={() => { setPrompt("My recent mail"); inputRef.current?.focus(); }} className="flex items-center gap-2 px-4 py-2 rounded-full border border-border/50 bg-muted/30 hover:bg-muted/50 text-sm text-foreground/80 transition-colors">
+            <button
+              onClick={() => {
+                setPrompt("My recent mail");
+                inputRef.current?.focus();
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-full border border-border/50 bg-muted/30 hover:bg-muted/50 text-sm text-foreground/80 transition-colors"
+            >
               <Mail className="size-4" /> My recent mail
             </button>
-            <button onClick={() => { setPrompt("My next meeting"); inputRef.current?.focus(); }} className="flex items-center gap-2 px-4 py-2 rounded-full border border-border/50 bg-muted/30 hover:bg-muted/50 text-sm text-foreground/80 transition-colors">
+            <button
+              onClick={() => {
+                setPrompt("My next meeting");
+                inputRef.current?.focus();
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-full border border-border/50 bg-muted/30 hover:bg-muted/50 text-sm text-foreground/80 transition-colors"
+            >
               <Calendar className="size-4" /> My next meeting
             </button>
-            <button onClick={() => { setPrompt("Summarize unread emails"); inputRef.current?.focus(); }} className="flex items-center gap-2 px-4 py-2 rounded-full border border-border/50 bg-muted/30 hover:bg-muted/50 text-sm text-foreground/80 transition-colors">
+            <button
+              onClick={() => {
+                setPrompt("Summarize unread emails");
+                inputRef.current?.focus();
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-full border border-border/50 bg-muted/30 hover:bg-muted/50 text-sm text-foreground/80 transition-colors"
+            >
               <Sparkles className="size-4" /> Summarize unread
             </button>
           </div>
@@ -189,131 +292,220 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
       ) : (
         <>
           <div className="flex-1 overflow-y-auto space-y-4 pb-4 scrollbar-thin">
+            {/* ── Error ────────────────────────────────────── */}
+            {error && (
+              <div className="text-destructive text-sm bg-destructive/5 p-4 rounded-xl text-left border border-destructive/20 animate-fade-in-up">
+                {error}
+              </div>
+            )}
 
-      {/* ── Error ────────────────────────────────────── */}
-      {error && (
-        <div className="text-destructive text-sm bg-destructive/5 p-4 rounded-xl text-left border border-destructive/20 animate-fade-in-up">
-          {error}
-        </div>
-      )}
-
-      {/* ── Conversation Thread ──────────────────────── */}
-      {messages.length > 0 && showResponse && (
-        <div
-          ref={responseRef}
-          className="space-y-3 animate-fade-in-up"
-        >
-          {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={`p-4 rounded-xl border transition-all ${
-                msg.role === "user"
-                  ? "bg-muted/30 border-border/50 ml-8"
-                  : "bg-card border-border mr-8"
-              } text-left`}
-            >
-              <div className="flex items-center gap-2 mb-1.5">
-                {msg.role === "assistant" ? (
-                  <div className="flex items-center gap-1.5">
-                    <div className="size-5 rounded-md bg-primary/10 flex items-center justify-center">
-                      <svg
-                        className="size-3 text-primary"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                      >
-                        <path d="M12 0L14.59 8.41L23 12L14.59 15.59L12 24L9.41 15.59L1 12L9.41 8.41L12 0Z" />
-                      </svg>
+            {/* ── Conversation Thread ──────────────────────── */}
+            {messages.length > 0 && showResponse && (
+              <div ref={responseRef} className="space-y-3 animate-fade-in-up">
+                {messages.map((msg, i) => (
+                  <div
+                    key={i}
+                    className={`p-4 rounded-xl border transition-all ${
+                      msg.role === "user"
+                        ? "bg-muted/30 border-border/50 ml-8"
+                        : "bg-card border-border mr-8"
+                    } text-left`}
+                  >
+                    <div className="flex items-center gap-2 mb-1.5">
+                      {msg.role === "assistant" ? (
+                        <div className="flex items-center gap-1.5">
+                          <div className="size-5 rounded-md bg-primary/10 flex items-center justify-center">
+                            <svg
+                              className="size-3 text-primary"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                            >
+                              <path d="M12 0L14.59 8.41L23 12L14.59 15.59L12 24L9.41 15.59L1 12L9.41 8.41L12 0Z" />
+                            </svg>
+                          </div>
+                          <span className="text-xs font-semibold text-foreground">
+                            ZeroClick
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-medium text-muted-foreground">
+                          You
+                        </span>
+                      )}
                     </div>
-                    <span className="text-xs font-semibold text-foreground">
-                      ZeroClick
+                    <div className="text-sm text-foreground/80 leading-relaxed">
+                      {msg.role === "assistant" ? (
+                        <>
+                          <ReactMarkdown
+                            components={{
+                              p: ({ children }) => (
+                                <p className="mb-2 last:mb-0">{children}</p>
+                              ),
+                              ul: ({ children }) => (
+                                <ul className="list-disc pl-5 mb-2 space-y-1">
+                                  {children}
+                                </ul>
+                              ),
+                              ol: ({ children }) => (
+                                <ol className="list-decimal pl-5 mb-2 space-y-1">
+                                  {children}
+                                </ol>
+                              ),
+                              li: ({ children }) => (
+                                <li className="text-sm">{children}</li>
+                              ),
+                              strong: ({ children }) => (
+                                <strong className="font-semibold text-foreground">
+                                  {children}
+                                </strong>
+                              ),
+                              em: ({ children }) => (
+                                <em className="italic">{children}</em>
+                              ),
+                              a: ({ href, children }) => (
+                                <a
+                                  href={href}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-primary hover:underline font-semibold"
+                                >
+                                  {children}
+                                </a>
+                              ),
+                              code({ className, children, ...props }) {
+                                const match = /language-(\w+)/.exec(
+                                  className || "",
+                                );
+                                const inline =
+                                  !match && !String(children).includes("\n");
+                                return inline ? (
+                                  <code
+                                    className="bg-muted/80 px-1.5 py-0.5 rounded font-mono text-xs text-primary font-medium"
+                                    {...props}
+                                  >
+                                    {children}
+                                  </code>
+                                ) : (
+                                  <pre className="bg-black/30 border border-border/50 p-3.5 rounded-xl font-mono text-xs overflow-x-auto my-3 text-foreground/90 w-full">
+                                    <code className={className} {...props}>
+                                      {children}
+                                    </code>
+                                  </pre>
+                                );
+                              },
+                            }}
+                          >
+                            {msg.content}
+                          </ReactMarkdown>
+                          {msg.pendingAction && (
+                            <div className="bg-card border border-border rounded-xl p-5 my-4 shadow-sm w-full">
+                              <div className="text-sm font-semibold text-primary mb-4 flex items-center gap-2">
+                                <Mail className="size-4" />
+                                {msg.pendingAction.type === "email"
+                                  ? "Email Ready"
+                                  : "Event Ready"}
+                              </div>
+
+                              {msg.pendingAction.type === "email" && (
+                                <div className="space-y-3 mb-6">
+                                  <div className="text-sm">
+                                    <span className="text-muted-foreground">
+                                      To:
+                                    </span>{" "}
+                                    <span className="font-medium text-foreground">
+                                      {msg.pendingAction.to}
+                                    </span>
+                                  </div>
+                                  <div className="text-sm">
+                                    <span className="text-muted-foreground">
+                                      Subject:
+                                    </span>{" "}
+                                    <span className="font-medium text-foreground">
+                                      {msg.pendingAction.subject}
+                                    </span>
+                                  </div>
+                                  <div className="text-sm text-foreground/90 mt-4 whitespace-pre-wrap bg-muted/30 p-3 rounded-lg border border-border/50">
+                                    {msg.pendingAction.body}
+                                  </div>
+                                </div>
+                              )}
+
+                              {msg.pendingAction.type === "calendar" && (
+                                <div className="space-y-3 mb-6">
+                                  <div className="text-sm">
+                                    <span className="text-muted-foreground">
+                                      Title:
+                                    </span>{" "}
+                                    <span className="font-medium text-foreground">
+                                      {msg.pendingAction.summary}
+                                    </span>
+                                  </div>
+                                  <div className="text-sm">
+                                    <span className="text-muted-foreground">
+                                      Start:
+                                    </span>{" "}
+                                    <span className="font-medium text-foreground">
+                                      {new Date(
+                                        msg.pendingAction.start,
+                                      ).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  <div className="text-sm">
+                                    <span className="text-muted-foreground">
+                                      End:
+                                    </span>{" "}
+                                    <span className="font-medium text-foreground">
+                                      {new Date(
+                                        msg.pendingAction.end,
+                                      ).toLocaleString()}
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="flex items-center gap-3">
+                                <button
+                                  onClick={() =>
+                                    handleActionResponse("Yes, execute it.")
+                                  }
+                                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors cursor-pointer"
+                                >
+                                  {msg.pendingAction.type === "email"
+                                    ? "Send"
+                                    : "Confirm"}
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    handleActionResponse("Cancel action.")
+                                  }
+                                  className="px-4 py-2 bg-muted text-foreground rounded-lg text-sm font-medium hover:bg-muted/80 transition-colors cursor-pointer"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="whitespace-pre-wrap">{msg.content}</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {loading && (
+                  <div className="flex items-center gap-2 p-4 rounded-xl border border-border bg-card mr-8">
+                    <div className="size-5 rounded-md bg-primary/10 flex items-center justify-center">
+                      <Loader2 className="size-3 text-primary animate-spin" />
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      Mr. Zero is thinking...
                     </span>
                   </div>
-                ) : (
-                  <span className="text-xs font-medium text-muted-foreground">
-                    You
-                  </span>
                 )}
+                <div ref={messagesEndRef} />
               </div>
-              <div className="text-sm text-foreground/80 leading-relaxed">
-                {msg.role === "assistant" ? (
-                  <ReactMarkdown
-                    components={{
-                      p: ({ children }) => (
-                        <p className="mb-2 last:mb-0">{children}</p>
-                      ),
-                      ul: ({ children }) => (
-                        <ul className="list-disc pl-5 mb-2 space-y-1">
-                          {children}
-                        </ul>
-                      ),
-                      ol: ({ children }) => (
-                        <ol className="list-decimal pl-5 mb-2 space-y-1">
-                          {children}
-                        </ol>
-                      ),
-                      li: ({ children }) => (
-                        <li className="text-sm">{children}</li>
-                      ),
-                      strong: ({ children }) => (
-                        <strong className="font-semibold text-foreground">
-                          {children}
-                        </strong>
-                      ),
-                      em: ({ children }) => (
-                        <em className="italic">{children}</em>
-                      ),
-                      a: ({ href, children }) => (
-                        <a
-                          href={href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline font-semibold"
-                        >
-                          {children}
-                        </a>
-                      ),
-                      code({ className, children, ...props }) {
-                        const match = /language-(\w+)/.exec(className || "");
-                        const inline =
-                          !match && !String(children).includes("\n");
-                        return inline ? (
-                          <code
-                            className="bg-muted/80 px-1.5 py-0.5 rounded font-mono text-xs text-primary font-medium"
-                            {...props}
-                          >
-                            {children}
-                          </code>
-                        ) : (
-                          <pre className="bg-black/30 border border-border/50 p-3.5 rounded-xl font-mono text-xs overflow-x-auto my-3 text-foreground/90 w-full">
-                            <code className={className} {...props}>
-                              {children}
-                            </code>
-                          </pre>
-                        );
-                      },
-                    }}
-                  >
-                    {msg.content}
-                  </ReactMarkdown>
-                ) : (
-                  <div className="whitespace-pre-wrap">{msg.content}</div>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {loading && (
-            <div className="flex items-center gap-2 p-4 rounded-xl border border-border bg-card mr-8">
-              <div className="size-5 rounded-md bg-primary/10 flex items-center justify-center">
-                <Loader2 className="size-3 text-primary animate-spin" />
-              </div>
-              <span className="text-xs text-muted-foreground">
-                Mr. Zero is thinking...
-              </span>
-            </div>
-          )}
-        </div>
-      )}
+            )}
           </div>
           <div className="w-full pt-4 mt-auto sticky bottom-0 bg-background/80 backdrop-blur-sm z-10 pb-4">
             {renderForm(false)}

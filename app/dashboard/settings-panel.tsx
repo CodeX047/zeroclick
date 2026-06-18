@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, User as UserIcon, LogOut, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { connectIntegration } from "@/app/onboarding/actions";
+import { useClerk } from "@clerk/nextjs";
 
 type UserSettings = {
   id: string;
@@ -16,6 +17,7 @@ type UserSettings = {
 };
 
 export function SettingsPanel() {
+  const { signOut } = useClerk();
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -316,6 +318,30 @@ export function SettingsPanel() {
                     </Button>
                   )}
                 </div>
+              </div>
+            </section>
+
+            {/* Account Actions Section */}
+            <section className="space-y-4">
+              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                Account Actions
+              </h3>
+              <div className="flex justify-between items-center p-4 rounded-xl border border-border bg-background">
+                <div>
+                  <p className="text-sm font-medium text-destructive">Sign Out</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Log out of your ZeroClick account.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => signOut({ redirectUrl: "/" })}
+                  className="gap-2 text-destructive border-destructive/20 hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                >
+                  <LogOut className="size-4" />
+                  Sign Out
+                </Button>
               </div>
             </section>
           </div>

@@ -178,7 +178,7 @@ export default function SignInPage() {
               {errors?.fields?.password && <p className="text-sm text-red-500">{errors.fields.password.message}</p>}
             </div>
 
-            {globalError && (
+            {globalError && !errors?.fields?.identifier && !errors?.fields?.password && (
               <p className="text-sm text-red-500">{globalError}</p>
             )}
 
@@ -194,6 +194,16 @@ export default function SignInPage() {
             <Link href="/sign-up">Create account</Link>
           </Button>
         </p>
+
+        <div className="mt-8 flex justify-center gap-4 text-xs text-muted-foreground">
+          <Link href="/privacy" className="hover:underline">
+            Privacy Policy
+          </Link>
+          <span>•</span>
+          <Link href="/terms" className="hover:underline">
+            Terms of Service
+          </Link>
+        </div>
       </div>
     </section>
   );

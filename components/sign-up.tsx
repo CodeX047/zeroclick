@@ -130,7 +130,9 @@ export default function SignupPage() {
                 {errors?.fields?.code && <p className="text-sm text-red-500">{errors.fields.code.message}</p>}
               </div>
 
-              {globalError && <p className="text-sm text-red-500">{globalError}</p>}
+              {globalError && !errors?.fields?.code && (
+                <p className="text-sm text-red-500">{globalError}</p>
+              )}
 
               <Button type="submit" className="w-full" disabled={fetchStatus === "fetching"}>
                 {fetchStatus === "fetching" ? "Verifying..." : "Verify"}
@@ -234,7 +236,9 @@ export default function SignupPage() {
               {errors?.fields?.password && <p className="text-sm text-red-500">{errors.fields.password.message}</p>}
             </div>
 
-            {globalError && <p className="text-sm text-red-500">{globalError}</p>}
+            {globalError && !errors?.fields?.emailAddress && !errors?.fields?.password && (
+              <p className="text-sm text-red-500">{globalError}</p>
+            )}
 
             <Button type="submit" className="w-full" disabled={fetchStatus === "fetching"}>
               {fetchStatus === "fetching" ? "Loading..." : "Continue"}
@@ -248,6 +252,16 @@ export default function SignupPage() {
             <Link href="/sign-in">Sign In</Link>
           </Button>
         </p>
+
+        <div className="mt-8 flex justify-center gap-4 text-xs text-muted-foreground">
+          <Link href="/privacy" className="hover:underline">
+            Privacy Policy
+          </Link>
+          <span>•</span>
+          <Link href="/terms" className="hover:underline">
+            Terms of Service
+          </Link>
+        </div>
       </div>
 
       {/* Required for sign-up flows. Clerk's bot sign-up protection is enabled by default */}

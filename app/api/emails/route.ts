@@ -1,6 +1,7 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { corsair } from "@/server/corsair";
+import { checkAndIncrementUsage, LimitReachedError } from "@/server/usage";
 
 export async function GET() {
   try {
@@ -10,6 +11,19 @@ export async function GET() {
     }
 
     const tenant = corsair.withTenant(user.id);
+
+    try {
+      await checkAndIncrementUsage(
+        user.id,
+        user.emailAddresses[0]?.emailAddress || "unknown@zeroclick.app",
+        "email_sync"
+      );
+    } catch (e) {
+      if (e instanceof LimitReachedError) {
+        return NextResponse.json({ error: e.message }, { status: 429 });
+      }
+      throw e;
+    }
 
     // Fetch the latest emails
     const data = await tenant.gmail.db.messages.search({ limit: 50 });

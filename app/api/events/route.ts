@@ -1,6 +1,7 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { corsair } from "@/server/corsair";
+import { checkAndIncrementUsage, LimitReachedError } from "@/server/usage";
 
 export async function GET(req: Request) {
   try {
@@ -12,6 +13,19 @@ export async function GET(req: Request) {
     const tenant = corsair.withTenant(user.id);
     const { searchParams } = new URL(req.url);
     const timeMin = searchParams.get("timeMin") || new Date().toISOString();
+
+    try {
+      await checkAndIncrementUsage(
+        user.id,
+        user.emailAddresses[0]?.emailAddress || "unknown@zeroclick.app",
+        "calendar_sync"
+      );
+    } catch (e) {
+      if (e instanceof LimitReachedError) {
+        return NextResponse.json({ error: e.message }, { status: 429 });
+      }
+      throw e;
+    }
     
     // Fetch upcoming events
     const res = await tenant.googlecalendar.api.events.getMany({

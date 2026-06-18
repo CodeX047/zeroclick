@@ -3,12 +3,26 @@ import { NextResponse } from "next/server";
 import { Agent, run, tool } from "@openai/agents";
 import { corsair } from "@/server/corsair";
 import { z } from "zod";
+import { checkAndIncrementUsage, LimitReachedError } from "@/server/usage";
 
 export async function POST(req: Request) {
   try {
     const user = await currentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      await checkAndIncrementUsage(
+        user.id,
+        user.emailAddresses[0]?.emailAddress || "unknown@zeroclick.app",
+        "ai_chat"
+      );
+    } catch (e) {
+      if (e instanceof LimitReachedError) {
+        return NextResponse.json({ response: e.message });
+      }
+      throw e;
     }
 
     const { messages, prompt } = await req.json();
@@ -508,10 +522,21 @@ Today's date is ${new Date().toLocaleDateString("en-US", { weekday: "long", year
     try {
       const cleanOutput = result.finalOutput.replace(/^```(?:json)?\n?/, '').replace(/```$/, '').trim();
       const data = JSON.parse(cleanOutput);
-      parsedResponse = data.response || result.finalOutput;
-      pendingAction = data.pendingAction;
+      
+      if (data.name && data.arguments) {
+        // The model leaked a raw tool call instead of formatting properly
+        parsedResponse = "I'm having trouble connecting to that service right now. Please try again.";
+      } else if (data.response) {
+        parsedResponse = data.response;
+        pendingAction = data.pendingAction;
+      } else {
+        parsedResponse = "I processed your request, but I couldn't generate a proper response.";
+      }
     } catch {
       parsedResponse = result.finalOutput;
+      if (parsedResponse.includes('"name":') && parsedResponse.includes('"arguments":')) {
+        parsedResponse = "I'm having trouble connecting to that service right now. Please try again.";
+      }
     }
 
     return NextResponse.json({ response: parsedResponse, pendingAction });

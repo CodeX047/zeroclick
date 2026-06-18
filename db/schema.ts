@@ -1,4 +1,4 @@
-import { pgTable, text, jsonb, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, jsonb, timestamp, integer } from "drizzle-orm/pg-core";
 
 export const corsairIntegrations = pgTable("corsair_integrations", {
   id: text("id").primaryKey(),
@@ -60,4 +60,24 @@ export const corsairEvents = pgTable("corsair_events", {
   eventType: text("event_type").notNull(),
   payload: jsonb("payload").notNull().default({}),
   status: text("status"),
+});
+
+export const users = pgTable("users", {
+  id: text("id").primaryKey(), // Clerk User ID
+  email: text("email").notNull(),
+  plan: text("plan").notNull().default("free"), // 'free', 'pro', 'ultimate'
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const userUsage = pgTable("user_usage", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
+  date: text("date").notNull(), // YYYY-MM-DD
+  aiChats: integer("ai_chats").notNull().default(0),
+  emailSyncs: integer("email_syncs").notNull().default(0),
+  calendarSyncs: integer("calendar_syncs").notNull().default(0),
 });

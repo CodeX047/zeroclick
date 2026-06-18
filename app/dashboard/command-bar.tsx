@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Loader2, Command } from "lucide-react";
+import { Loader2, Command, Mail, Calendar, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 const placeholderExamples = [
@@ -98,72 +98,97 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
     }
   };
 
-  return (
-    <div className="w-full space-y-4">
-      {/* ── Command Bar ──────────────────────────────── */}
-      <form onSubmit={handleSubmit} className="relative group w-full">
-        {/* Glow effect */}
-        <div className="absolute -inset-1 bg-gradient-to-r from-primary/30 via-primary/15 to-primary/30 rounded-2xl blur-lg opacity-0 group-focus-within:opacity-100 transition-all duration-700" />
-        <div className="absolute -inset-0.5 bg-primary/10 rounded-2xl blur opacity-0 group-focus-within:opacity-60 transition-all duration-500" />
+  const renderForm = (isCentered: boolean = false) => (
+    <form onSubmit={handleSubmit} className={`relative group w-full ${isCentered ? "max-w-2xl mx-auto" : ""}`}>
+      {/* Glow effect */}
+      <div className="absolute -inset-1 bg-gradient-to-r from-primary/30 via-primary/15 to-primary/30 rounded-2xl blur-lg opacity-0 group-focus-within:opacity-100 transition-all duration-700" />
+      <div className="absolute -inset-0.5 bg-primary/10 rounded-2xl blur opacity-0 group-focus-within:opacity-60 transition-all duration-500" />
 
-        <div className="relative glass rounded-2xl shadow-lg shadow-black/[0.03] dark:shadow-black/20 flex items-center border border-border focus-within:border-primary/30 transition-all duration-300 focus-within:glow-accent-ring">
-          {/* Sparkle icon */}
-          <div className="pl-5 pr-1">
-            <div className="size-5 rounded-md bg-primary/10 flex items-center justify-center">
-              <svg
-                className="size-3 text-primary"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
-                <path d="M12 0L14.59 8.41L23 12L14.59 15.59L12 24L9.41 15.59L1 12L9.41 8.41L12 0Z" />
-              </svg>
-            </div>
-          </div>
-
-          <input
-            ref={inputRef}
-            type="text"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder={`Ask ZeroClick... "${placeholderExamples[placeholderIndex]}"`}
-            className="w-full bg-transparent px-3 py-4 text-[15px] outline-none placeholder:text-muted-foreground/50 text-foreground rounded-2xl"
-            disabled={loading}
-          />
-
-          <div className="flex items-center gap-2 pr-4">
-            {/* Keyboard shortcut */}
-            <kbd className="hidden sm:flex items-center gap-0.5 text-[10px] text-muted-foreground/60 bg-muted/60 px-1.5 py-1 rounded-md font-mono border border-border/50">
-              <Command className="size-2.5" />K
-            </kbd>
-
-            {/* Submit button */}
-            <button
-              type="submit"
-              disabled={loading || !prompt.trim()}
-              className="bg-primary text-primary-foreground p-2 rounded-xl hover:bg-primary/90 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center active:scale-95"
+      <div className="relative glass rounded-2xl shadow-lg shadow-black/[0.03] dark:shadow-black/20 flex items-center border border-border focus-within:border-primary/30 transition-all duration-300 focus-within:glow-accent-ring bg-background">
+        {/* Sparkle icon */}
+        <div className="pl-5 pr-1">
+          <div className="size-5 rounded-md bg-primary/10 flex items-center justify-center">
+            <svg
+              className="size-3 text-primary"
+              viewBox="0 0 24 24"
+              fill="currentColor"
             >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <line x1="22" y1="2" x2="11" y2="13" />
-                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                </svg>
-              )}
+              <path d="M12 0L14.59 8.41L23 12L14.59 15.59L12 24L9.41 15.59L1 12L9.41 8.41L12 0Z" />
+            </svg>
+          </div>
+        </div>
+
+        <input
+          ref={inputRef}
+          type="text"
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          placeholder={`Ask ZeroClick... "${placeholderExamples[placeholderIndex]}"`}
+          className="w-full bg-transparent px-3 py-4 text-[15px] outline-none placeholder:text-muted-foreground/50 text-foreground rounded-2xl"
+          disabled={loading}
+        />
+
+        <div className="flex items-center gap-2 pr-4">
+          {/* Keyboard shortcut */}
+          <kbd className="hidden sm:flex items-center gap-0.5 text-[10px] text-muted-foreground/60 bg-muted/60 px-1.5 py-1 rounded-md font-mono border border-border/50">
+            <Command className="size-2.5" />K
+          </kbd>
+
+          {/* Submit button */}
+          <button
+            type="submit"
+            disabled={loading || !prompt.trim()}
+            className="bg-primary text-primary-foreground p-2 rounded-xl hover:bg-primary/90 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center active:scale-95"
+          >
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+              </svg>
+            )}
+          </button>
+        </div>
+      </div>
+    </form>
+  );
+
+  return (
+    <div className="flex flex-col h-full w-full max-w-3xl mx-auto">
+      {messages.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center min-h-[500px]">
+          <h1 className="text-[40px] font-semibold tracking-tight text-foreground mb-8">
+            ZeroClick
+          </h1>
+          <div className="w-full">
+            {renderForm(true)}
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-3 mt-8">
+            <button onClick={() => { setPrompt("My recent mail"); inputRef.current?.focus(); }} className="flex items-center gap-2 px-4 py-2 rounded-full border border-border/50 bg-muted/30 hover:bg-muted/50 text-sm text-foreground/80 transition-colors">
+              <Mail className="size-4" /> My recent mail
+            </button>
+            <button onClick={() => { setPrompt("My next meeting"); inputRef.current?.focus(); }} className="flex items-center gap-2 px-4 py-2 rounded-full border border-border/50 bg-muted/30 hover:bg-muted/50 text-sm text-foreground/80 transition-colors">
+              <Calendar className="size-4" /> My next meeting
+            </button>
+            <button onClick={() => { setPrompt("Summarize unread emails"); inputRef.current?.focus(); }} className="flex items-center gap-2 px-4 py-2 rounded-full border border-border/50 bg-muted/30 hover:bg-muted/50 text-sm text-foreground/80 transition-colors">
+              <Sparkles className="size-4" /> Summarize unread
             </button>
           </div>
         </div>
-      </form>
+      ) : (
+        <>
+          <div className="flex-1 overflow-y-auto space-y-4 pb-4 scrollbar-thin">
 
       {/* ── Error ────────────────────────────────────── */}
       {error && (
@@ -176,7 +201,7 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
       {messages.length > 0 && showResponse && (
         <div
           ref={responseRef}
-          className="space-y-3 max-h-[50vh] overflow-y-auto scrollbar-thin animate-fade-in-up"
+          className="space-y-3 animate-fade-in-up"
         >
           {messages.map((msg, i) => (
             <div
@@ -288,6 +313,12 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
             </div>
           )}
         </div>
+      )}
+          </div>
+          <div className="w-full pt-4 mt-auto sticky bottom-0 bg-background/80 backdrop-blur-sm z-10 pb-4">
+            {renderForm(false)}
+          </div>
+        </>
       )}
     </div>
   );

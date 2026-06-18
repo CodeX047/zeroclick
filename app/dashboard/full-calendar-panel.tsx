@@ -1,8 +1,17 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, RefreshCw, Loader2 } from "lucide-react";
+import { CalendarEvent } from "./types";
 
-export function FullCalendarPanel() {
+interface FullCalendarPanelProps {
+  events: CalendarEvent[];
+  loading: boolean;
+  error: string;
+  onSync: () => void;
+}
+
+export function FullCalendarPanel({ events, loading, error, onSync }: FullCalendarPanelProps) {
+
   const days = [
     { day: "Monday", date: "15" },
     { day: "Tuesday", date: "16" },
@@ -13,10 +22,11 @@ export function FullCalendarPanel() {
     { day: "Sunday", date: "21" },
   ];
 
-  const hours = [
-    "2 am", "3 am", "4 am", "5 am", "6 am", "7 am",
-    "8 am", "9 am", "10 am", "11 am", "12 pm", "1 pm",
-  ];
+  const hours = Array.from({ length: 24 }, (_, i) => {
+    if (i === 0) return "12 am";
+    if (i === 12) return "12 pm";
+    return i > 12 ? `${i - 12} pm` : `${i} am`;
+  });
 
   return (
     <div className="flex flex-col h-full w-full bg-background/50 rounded-xl border border-border p-8 overflow-hidden">
@@ -51,6 +61,9 @@ export function FullCalendarPanel() {
             </button>
           </div>
 
+          <button onClick={onSync} disabled={loading} className="flex items-center justify-center size-9 bg-muted/50 hover:bg-muted text-foreground rounded-full border border-border/50 transition-colors ml-2 disabled:opacity-50" title="Sync Events">
+            <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
           {/* Add Event Button */}
           <button className="flex items-center gap-2 px-5 py-2 bg-foreground hover:bg-foreground/90 text-background rounded-full transition-colors shadow-sm ml-2">
             <Plus className="size-4" />
@@ -59,8 +72,10 @@ export function FullCalendarPanel() {
         </div>
       </div>
 
-      <div className="text-sm text-muted-foreground mb-6">
-        Loading your calendar...
+      <div className="text-sm text-muted-foreground mb-6 h-5">
+        {loading && <span className="flex items-center gap-2"><Loader2 className="size-3 animate-spin" /> Syncing calendar...</span>}
+        {!loading && error && <span className="text-destructive">{error}</span>}
+        {!loading && !error && <span>{events.length} upcoming events synced.</span>}
       </div>
 
       {/* ── Date Picker Row ──────────────────────────── */}
@@ -86,17 +101,51 @@ export function FullCalendarPanel() {
 
       {/* ── Timeline Grid ────────────────────────────── */}
       <div className="flex-1 overflow-y-auto scrollbar-thin pr-4 relative">
-        <div className="space-y-0">
+        <div className="space-y-0 relative min-h-[1920px]">
           {hours.map((time, i) => (
             <div key={i} className="flex group h-20">
               <div className="w-16 text-xs text-muted-foreground font-medium pt-2 shrink-0">
                 {time}
               </div>
               <div className="flex-1 border-t border-border/40 group-hover:border-border/80 transition-colors relative">
-                {/* Event placeholder could go here */}
               </div>
             </div>
           ))}
+
+          {!loading && events.map((event) => {
+            if (event.isAllDay) return null;
+            
+            const startDate = new Date(event.start);
+            const endDate = new Date(event.end);
+            
+            const startHour = startDate.getHours();
+            const startMinute = startDate.getMinutes();
+            
+            const top = (startHour * 80) + (startMinute / 60) * 80;
+            const durationMinutes = (endDate.getTime() - startDate.getTime()) / (1000 * 60);
+            const height = Math.max((durationMinutes / 60) * 80, 20); // min 20px
+            
+            const colorClasses = [
+              "bg-blue-500/10 border-blue-500/30 text-blue-500", 
+              "bg-emerald-500/10 border-emerald-500/30 text-emerald-500", 
+              "bg-violet-500/10 border-violet-500/30 text-violet-500", 
+              "bg-orange-500/10 border-orange-500/30 text-orange-500"
+            ];
+            const colorClass = colorClasses[startHour % colorClasses.length];
+
+            return (
+              <div 
+                key={event.id}
+                className={`absolute left-16 right-4 rounded-lg border p-2 overflow-hidden shadow-sm backdrop-blur-sm ${colorClass}`}
+                style={{ top: `${top}px`, height: `${height}px` }}
+              >
+                <div className="text-xs font-semibold truncate">{event.summary}</div>
+                <div className="text-[10px] opacity-80 mt-0.5 font-medium">
+                  {startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

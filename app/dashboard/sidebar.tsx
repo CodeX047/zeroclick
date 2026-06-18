@@ -1,16 +1,15 @@
 "use client";
 
 import { UserButton } from "@clerk/nextjs";
+import Image from "next/image";
 import {
   Inbox,
   Calendar,
-  Clock,
   Settings,
   ChevronLeft,
   ChevronRight,
   CheckCircle2,
   Home,
-  Zap,
 } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -33,9 +32,8 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { icon: Home, label: "Home", href: "/dashboard" },
-  { icon: Inbox, label: "Inbox", href: "/dashboard", badge: 12 },
+  { icon: Inbox, label: "Inbox", href: "/dashboard" },
   { icon: Calendar, label: "Calendar", href: "/dashboard" },
-  { icon: Clock, label: "History", href: "/dashboard" },
   { icon: Settings, label: "Settings", href: "/dashboard" },
 ];
 
@@ -59,8 +57,8 @@ export function Sidebar({
     >
       {/* ── Logo ─────────────────────────────────────── */}
       <div className="flex items-center gap-3 px-4 h-16 border-b border-border">
-        <div className="flex items-center justify-center size-8 rounded-lg bg-primary text-primary-foreground shrink-0">
-          <Zap className="size-4" />
+        <div className="flex items-center justify-center size-8 rounded-lg shrink-0 overflow-hidden">
+          <Image src="/logo.jpg" alt="ZeroClick Logo" width={32} height={32} className="object-cover w-full h-full" />
         </div>
         {!collapsed && (
           <div className="flex flex-col overflow-hidden">

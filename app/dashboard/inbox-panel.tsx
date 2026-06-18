@@ -1,123 +1,36 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Star, Mail } from "lucide-react";
+import { Search, Star, Mail, RefreshCw, Loader2 } from "lucide-react";
+import { Email } from "./types";
 
 const filters = ["All", "Unread", "Important", "Starred"];
 
-interface Email {
-  id: string;
-  sender: string;
-  senderInitial: string;
-  senderColor: string;
-  subject: string;
-  snippet: string;
-  time: string;
-  unread: boolean;
-  important: boolean;
-  starred: boolean;
+interface InboxPanelProps {
+  emails: Email[];
+  loading: boolean;
+  error: string;
+  onSync: () => void;
+  selectedEmailId: string | null;
+  onSelectEmail: (email: Email) => void;
 }
 
-const demoEmails: Email[] = [
-  {
-    id: "1",
-    sender: "Sarah Thompson",
-    senderInitial: "S",
-    senderColor: "bg-orange-500",
-    subject: "Q2 Product Review – Agenda & Goals",
-    snippet: "Hi team, please find the agenda for our upcoming product review...",
-    time: "9:24 AM",
-    unread: true,
-    important: true,
-    starred: false,
-  },
-  {
-    id: "2",
-    sender: "Alex Johnson",
-    senderInitial: "A",
-    senderColor: "bg-blue-500",
-    subject: "Design System Updates",
-    snippet: "We've made significant updates to the components library...",
-    time: "8:45 AM",
-    unread: true,
-    important: false,
-    starred: false,
-  },
-  {
-    id: "3",
-    sender: "Google Calendar",
-    senderInitial: "G",
-    senderColor: "bg-emerald-500",
-    subject: "Marketing Sync",
-    snippet: "Event reminder: Marketing Sync at 2:00 PM",
-    time: "8:00 AM",
-    unread: false,
-    important: false,
-    starred: false,
-  },
-  {
-    id: "4",
-    sender: "Notion",
-    senderInitial: "N",
-    senderColor: "bg-zinc-700",
-    subject: "Project Roadmap",
-    snippet: "The roadmap has been updated with new milestones for Q3...",
-    time: "Yesterday",
-    unread: false,
-    important: false,
-    starred: true,
-  },
-  {
-    id: "5",
-    sender: "Michael Chen",
-    senderInitial: "M",
-    senderColor: "bg-violet-500",
-    subject: "User Research Findings",
-    snippet: "Sharing the latest research findings from our user study...",
-    time: "Yesterday",
-    unread: false,
-    important: false,
-    starred: false,
-  },
-  {
-    id: "6",
-    sender: "Product Hunt",
-    senderInitial: "P",
-    senderColor: "bg-orange-500",
-    subject: "New Product Launch",
-    snippet: "Congrats! Your product has been featured on Product Hunt 🎉",
-    time: "May 28",
-    unread: false,
-    important: false,
-    starred: true,
-  },
-  {
-    id: "7",
-    sender: "Emily Davis",
-    senderInitial: "E",
-    senderColor: "bg-pink-500",
-    subject: "Re: Partnership Opportunity",
-    snippet: "Thanks for reaching out. I'd love to explore how we can collaborate...",
-    time: "May 27",
-    unread: false,
-    important: false,
-    starred: false,
-  },
-];
-
-export function InboxPanel() {
+export function InboxPanel({ emails, loading, error, onSync, selectedEmailId, onSelectEmail }: InboxPanelProps) {
   const [activeFilter, setActiveFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
 
-  const filteredEmails = demoEmails.filter((email) => {
+
+  const filteredEmails = emails.filter((email) => {
     if (activeFilter === "Unread") return email.unread;
     if (activeFilter === "Important") return email.important;
     if (activeFilter === "Starred") return email.starred;
     return true;
-  });
+  }).filter((email) => 
+    email.subject.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    email.sender.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
-  const unreadCount = demoEmails.filter((e) => e.unread).length;
+  const unreadCount = emails.filter((e) => e.unread).length;
 
   return (
     <div className="flex flex-col h-full rounded-xl border border-border bg-card overflow-hidden">
@@ -133,6 +46,14 @@ export function InboxPanel() {
             )}
           </div>
           <div className="flex items-center gap-1.5">
+            <button 
+              onClick={onSync} 
+              disabled={loading}
+              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+              title="Sync Emails"
+            >
+              <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
             <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
               <Mail className="size-4" />
             </button>
@@ -170,13 +91,24 @@ export function InboxPanel() {
       </div>
 
       {/* ── Email List ───────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto scrollbar-thin divide-y divide-border/50">
+      <div className="flex-1 overflow-y-auto scrollbar-thin divide-y divide-border/50 relative">
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-card/50 backdrop-blur-sm z-10">
+            <Loader2 className="size-6 text-primary animate-spin" />
+          </div>
+        )}
+        {!loading && error && (
+          <div className="p-6 text-center text-destructive text-sm">{error}</div>
+        )}
+        {!loading && !error && filteredEmails.length === 0 && (
+          <div className="p-6 text-center text-muted-foreground text-sm">No emails found.</div>
+        )}
         {filteredEmails.map((email) => (
           <button
             key={email.id}
-            onClick={() => setSelectedEmail(email.id)}
+            onClick={() => onSelectEmail(email)}
             className={`w-full text-left px-5 py-3.5 transition-all duration-150 hover:bg-accent/50 group ${
-              selectedEmail === email.id ? "bg-accent/70" : ""
+              selectedEmailId === email.id ? "bg-accent/70" : ""
             } ${email.unread ? "" : "opacity-75"}`}
           >
             <div className="flex items-start gap-3">

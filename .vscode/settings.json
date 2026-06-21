@@ -1,0 +1,4 @@
+{
+  "tailwindCSS.experimental.classRegex": [],
+  "tailwindCSS.lint.suggestCanonicalClasses": "ignore"
+}

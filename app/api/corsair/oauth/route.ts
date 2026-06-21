@@ -12,22 +12,20 @@ export async function GET(req: Request) {
     redirect(`/onboarding?error=${encodeURIComponent(error)}`);
   }
 
-  // We must rebuild the absolute redirect URI that we provided when generating
-  // In a production environment, you should use NEXT_PUBLIC_APP_URL instead.
-  const redirectUri = process.env.NEXT_PUBLIC_APP_URL 
+  const redirectUri = process.env.NEXT_PUBLIC_APP_URL
     ? `${process.env.NEXT_PUBLIC_APP_URL}/api/corsair/oauth`
     : "http://localhost:3000/api/corsair/oauth";
 
   if (code && state) {
     let success = false;
     let errorMessage = "";
-    
+
     try {
       await processOAuthCallback(corsair, { code, state, redirectUri });
       success = true;
     } catch (err: unknown) {
       console.error("OAuth callback failed:", err);
-      errorMessage = err instanceof Error ? err.message : String(err);
+      errorMessage = "We couldn't connect your account. Please try again.";
     }
 
     if (success) {

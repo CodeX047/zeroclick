@@ -81,3 +81,17 @@ export const userUsage = pgTable("user_usage", {
   emailSyncs: integer("email_syncs").notNull().default(0),
   calendarSyncs: integer("calendar_syncs").notNull().default(0),
 });
+
+export const pendingActions = pgTable("pending_actions", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
+  type: text("type").notNull(), // 'email' | 'calendar'
+  payload: jsonb("payload").notNull().default({}), // {to,subject,body} | {summary,start,end}
+  status: text("status").notNull().default("pending"), // 'pending' | 'consumed' | 'failed'
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});

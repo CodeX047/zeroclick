@@ -5,6 +5,17 @@ import { corsair } from "@/server/corsair";
 import { z } from "zod";
 import { checkAndIncrementUsage, LimitReachedError } from "@/server/usage";
 
+function sanitizeHeaderValue(value: string): string {
+  return value.replace(/[\r\n]+/g, " ").trim();
+}
+
+function encodeHeaderValue(value: string): string {
+  // eslint-disable-next-line no-control-regex
+  if (/^[\x00-\x7F]*$/.test(value)) return value;
+  const encoded = Buffer.from(value, "utf-8").toString("base64");
+  return `=?UTF-8?B?${encoded}?=`;
+}
+
 export async function POST(req: Request) {
   try {
     const user = await currentUser();
@@ -91,12 +102,12 @@ export async function POST(req: Request) {
                 const subject =
                   headers.find(
                     (h: Record<string, unknown>) =>
-                      (h.name as string)?.toLowerCase() === "subject"
+                      (h.name as string)?.toLowerCase() === "subject",
                   )?.value || "No Subject";
                 const sender =
                   headers.find(
                     (h: Record<string, unknown>) =>
-                      (h.name as string)?.toLowerCase() === "from"
+                      (h.name as string)?.toLowerCase() === "from",
                   )?.value || "Unknown";
 
                 emails.push({
@@ -301,7 +312,11 @@ export async function POST(req: Request) {
             .describe("The end date and time as an ISO 8601 string."),
         }),
         execute: async ({ startDateTime, endDateTime }) => {
-          console.info("checkCalendarConflicts called with:", startDateTime, endDateTime);
+          console.info(
+            "checkCalendarConflicts called with:",
+            startDateTime,
+            endDateTime,
+          );
           try {
             const start = new Date(startDateTime);
             const end = new Date(endDateTime);
@@ -332,7 +347,8 @@ export async function POST(req: Request) {
 
             if (res.items) {
               for (const event of res.items) {
-                const eventStartStr = event.start?.dateTime || event.start?.date;
+                const eventStartStr =
+                  event.start?.dateTime || event.start?.date;
                 const eventEndStr = event.end?.dateTime || event.end?.date;
                 if (!eventStartStr || !eventEndStr) continue;
 
@@ -352,7 +368,10 @@ export async function POST(req: Request) {
               }
             }
 
-            console.info("checkCalendarConflicts: conflicts found:", conflicts.length);
+            console.info(
+              "checkCalendarConflicts: conflicts found:",
+              conflicts.length,
+            );
 
             if (conflicts.length === 0) {
               return { success: true, hasConflict: false };
@@ -374,7 +393,7 @@ export async function POST(req: Request) {
             while (alternatives.length < 3 && candidateStart < searchLimit) {
               const candidateEnd = candidateStart + duration;
               const hasOverlap = busyRanges.some(
-                (r) => candidateStart < r.end && candidateEnd > r.start
+                (r) => candidateStart < r.end && candidateEnd > r.start,
               );
 
               if (!hasOverlap) {
@@ -427,8 +446,26 @@ export async function POST(req: Request) {
           }
 
           try {
-            const rawMessage = `To: ${to}\r\nSubject: ${subject}\r\n\r\n${body}`;
-            const encodedMessage = Buffer.from(rawMessage)
+            const safeTo = sanitizeHeaderValue(to!);
+            const safeSubject = encodeHeaderValue(
+              sanitizeHeaderValue(subject!),
+            );
+
+            const encodedBody = Buffer.from(body!, "utf-8")
+              .toString("base64")
+              .replace(/(.{76})/g, "$1\r\n");
+
+            const rawMessage = [
+              `To: ${safeTo}`,
+              `Subject: ${safeSubject}`,
+              "MIME-Version: 1.0",
+              'Content-Type: text/plain; charset="UTF-8"',
+              "Content-Transfer-Encoding: base64",
+              "",
+              encodedBody,
+            ].join("\r\n");
+
+            const encodedMessage = Buffer.from(rawMessage, "utf-8")
               .toString("base64")
               .replace(/\+/g, "-")
               .replace(/\//g, "_")

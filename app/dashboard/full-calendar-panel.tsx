@@ -11,8 +11,13 @@ interface FullCalendarPanelProps {
   onSync: () => void;
 }
 
-export function FullCalendarPanel({ events, loading, error, onSync }: FullCalendarPanelProps) {
-  const [currentDate, setCurrentDate] = useState<Date>(new Date("2026-06-18")); // default to standard mock date
+export function FullCalendarPanel({
+  events,
+  loading,
+  error,
+  onSync,
+}: FullCalendarPanelProps) {
+  const [currentDate, setCurrentDate] = useState<Date>(new Date()); // default to actual today
   const [view, setView] = useState<"Month" | "Week" | "Day">("Week");
 
   // Helper: check if two dates are the same calendar day
@@ -93,7 +98,9 @@ export function FullCalendarPanel({ events, loading, error, onSync }: FullCalend
     }
 
     if (view === "Day") {
-      const dayName = currentDate.toLocaleDateString("en-US", { weekday: "long" });
+      const dayName = currentDate.toLocaleDateString("en-US", {
+        weekday: "long",
+      });
       return `${dayName}, ${m} ${currentDate.getDate()}, ${y}`;
     }
 
@@ -140,7 +147,7 @@ export function FullCalendarPanel({ events, loading, error, onSync }: FullCalend
   };
 
   const handleToday = () => {
-    setCurrentDate(new Date("2026-06-18")); // default to the workspace mock date
+    setCurrentDate(new Date()); // jump to actual today
   };
 
   const hours = Array.from({ length: 24 }, (_, i) => {
@@ -254,7 +261,9 @@ export function FullCalendarPanel({ events, loading, error, onSync }: FullCalend
           </span>
         )}
         {!loading && error && <span className="text-destructive">{error}</span>}
-        {!loading && !error && <span>{events.length} upcoming events synced.</span>}
+        {!loading && !error && (
+          <span>{events.length} upcoming events synced.</span>
+        )}
       </div>
 
       {/* ── Day View ──────────────────────────── */}
@@ -263,7 +272,7 @@ export function FullCalendarPanel({ events, loading, error, onSync }: FullCalend
           <div className="flex items-center gap-4 mb-8 overflow-x-auto pb-2 scrollbar-thin select-none">
             {weekDays.map((d, i) => {
               const isActive = isSameDay(d, currentDate);
-              const isToday = isSameDay(d, new Date("2026-06-18"));
+              const isToday = isSameDay(d, new Date());
               return (
                 <div
                   key={i}
@@ -282,8 +291,8 @@ export function FullCalendarPanel({ events, loading, error, onSync }: FullCalend
                       isActive
                         ? "text-background"
                         : isToday
-                        ? "text-emerald-500 font-extrabold"
-                        : "text-foreground"
+                          ? "text-emerald-500 font-extrabold"
+                          : "text-foreground"
                     }`}
                   >
                     {d.getDate()}
@@ -296,7 +305,7 @@ export function FullCalendarPanel({ events, loading, error, onSync }: FullCalend
           <div className="flex-1 overflow-y-auto scrollbar-thin pr-4 relative min-h-0">
             <div className="relative min-h-[1920px]">
               {hours.map((time, i) => (
-                <div key={i} className="flex group h-20">
+                <div key={i} className="flex group h-[80px]">
                   <div className="w-16 text-xs text-muted-foreground font-medium pt-2 shrink-0 select-none">
                     {time}
                   </div>
@@ -306,7 +315,10 @@ export function FullCalendarPanel({ events, loading, error, onSync }: FullCalend
 
               <div className="absolute inset-y-0 left-16 right-0 pointer-events-none">
                 {events
-                  .filter((e) => !e.isAllDay && isSameDay(new Date(e.start), currentDate))
+                  .filter(
+                    (e) =>
+                      !e.isAllDay && isSameDay(new Date(e.start), currentDate),
+                  )
                   .map((event) => {
                     const startDate = new Date(event.start);
                     const endDate = new Date(event.end);
@@ -325,7 +337,9 @@ export function FullCalendarPanel({ events, loading, error, onSync }: FullCalend
                         className={`absolute left-2 right-4 rounded-xl border p-3 overflow-hidden shadow-sm backdrop-blur-sm pointer-events-auto ${colorClass}`}
                         style={{ top: `${top}px`, height: `${height}px` }}
                       >
-                        <div className="text-xs font-bold truncate">{event.summary}</div>
+                        <div className="text-xs font-bold truncate">
+                          {event.summary}
+                        </div>
                         <div className="text-[10px] opacity-85 mt-1 font-semibold">
                           {startDate.toLocaleTimeString([], {
                             hour: "2-digit",
@@ -351,7 +365,7 @@ export function FullCalendarPanel({ events, loading, error, onSync }: FullCalend
         <div className="flex-1 flex flex-col min-h-0">
           <div className="grid grid-cols-7 gap-2 pl-16 border-b border-border/40 pb-4 mb-4 text-center select-none">
             {weekDays.map((d, i) => {
-              const isToday = isSameDay(d, new Date("2026-06-18"));
+              const isToday = isSameDay(d, new Date());
               return (
                 <div key={i} className="flex flex-col items-center">
                   <span className="text-xs text-muted-foreground font-semibold uppercase">
@@ -359,7 +373,9 @@ export function FullCalendarPanel({ events, loading, error, onSync }: FullCalend
                   </span>
                   <span
                     className={`text-lg font-bold flex items-center justify-center size-8 rounded-full mt-1 ${
-                      isToday ? "bg-foreground text-background" : "text-foreground"
+                      isToday
+                        ? "bg-foreground text-background"
+                        : "text-foreground"
                     }`}
                   >
                     {d.getDate()}
@@ -373,7 +389,7 @@ export function FullCalendarPanel({ events, loading, error, onSync }: FullCalend
             <div className="relative min-h-[1920px]">
               {/* Background hourly lines */}
               {hours.map((time, i) => (
-                <div key={i} className="flex group h-20">
+                <div key={i} className="flex group h-[80px]">
                   <div className="w-16 text-xs text-muted-foreground font-medium pt-2 shrink-0 select-none">
                     {time}
                   </div>
@@ -385,7 +401,7 @@ export function FullCalendarPanel({ events, loading, error, onSync }: FullCalend
               <div className="absolute inset-y-0 left-16 right-0 grid grid-cols-7 gap-2 pointer-events-none">
                 {weekDays.map((day, colIndex) => {
                   const dayEvents = events.filter(
-                    (e) => !e.isAllDay && isSameDay(new Date(e.start), day)
+                    (e) => !e.isAllDay && isSameDay(new Date(e.start), day),
                   );
                   return (
                     <div
@@ -399,8 +415,12 @@ export function FullCalendarPanel({ events, loading, error, onSync }: FullCalend
                         const startMinute = startDate.getMinutes();
                         const top = startHour * 80 + (startMinute / 60) * 80;
                         const durationMinutes =
-                          (endDate.getTime() - startDate.getTime()) / (1000 * 60);
-                        const height = Math.max((durationMinutes / 60) * 80, 24);
+                          (endDate.getTime() - startDate.getTime()) /
+                          (1000 * 60);
+                        const height = Math.max(
+                          (durationMinutes / 60) * 80,
+                          24,
+                        );
 
                         const colorClass = getEventColors(hashString(event.id));
 
@@ -409,10 +429,13 @@ export function FullCalendarPanel({ events, loading, error, onSync }: FullCalend
                             key={event.id}
                             className={`absolute left-1 right-1 rounded-lg border p-2 overflow-hidden shadow-sm backdrop-blur-sm ${colorClass}`}
                             style={{ top: `${top}px`, height: `${height}px` }}
-                            title={`${event.summary}\n${startDate.toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })} - ${endDate.toLocaleTimeString([], {
+                            title={`${event.summary}\n${startDate.toLocaleTimeString(
+                              [],
+                              {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              },
+                            )} - ${endDate.toLocaleTimeString([], {
                               hour: "2-digit",
                               minute: "2-digit",
                             })}`}
@@ -456,8 +479,10 @@ export function FullCalendarPanel({ events, loading, error, onSync }: FullCalend
           <div className="flex-1 grid grid-cols-7 grid-rows-5 gap-2 min-h-0">
             {monthDays.map((d, i) => {
               const isCurrentMonth = d.getMonth() === currentDate.getMonth();
-              const isToday = isSameDay(d, new Date("2026-06-18"));
-              const dayEvents = events.filter((e) => isSameDay(new Date(e.start), d));
+              const isToday = isSameDay(d, new Date());
+              const dayEvents = events.filter((e) =>
+                isSameDay(new Date(e.start), d),
+              );
 
               return (
                 <div
@@ -466,13 +491,15 @@ export function FullCalendarPanel({ events, loading, error, onSync }: FullCalend
                     setCurrentDate(d);
                     setView("Day");
                   }}
-                  className={`flex flex-col p-2 rounded-xl border border-border/20 transition-all hover:bg-muted/40 cursor-pointer min-h-[90px] ${
+                  className={`flex flex-col p-2 rounded-xl border border-border/20 transition-all hover:bg-muted/40 cursor-pointer min-h-22.5 ${
                     isCurrentMonth ? "bg-muted/10" : "bg-muted/5 opacity-40"
                   } ${isToday ? "border-emerald-500/50 bg-emerald-500/5" : ""}`}
                 >
                   <span
                     className={`text-xs font-bold self-end select-none ${
-                      isToday ? "text-emerald-500 font-extrabold" : "text-muted-foreground"
+                      isToday
+                        ? "text-emerald-500 font-extrabold"
+                        : "text-muted-foreground"
                     }`}
                   >
                     {d.getDate()}

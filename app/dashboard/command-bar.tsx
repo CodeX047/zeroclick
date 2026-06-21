@@ -31,7 +31,12 @@ type PendingAction = {
 
 export function CommandBar({ initialPrompt }: CommandBarProps) {
   const [messages, setMessages] = useState<
-    { role: string; content: string; pendingAction?: PendingAction }[]
+    {
+      role: string;
+      content: string;
+      pendingAction?: PendingAction;
+      actionToken?: string;
+    }[]
   >([]);
   const [prompt, setPrompt] = useState(initialPrompt || "");
   const [prevInitialPrompt, setPrevInitialPrompt] = useState(initialPrompt);
@@ -48,13 +53,16 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
   // Load chat history from sessionStorage on mount
   useEffect(() => {
     const savedMessages = sessionStorage.getItem("zeroclick_chat_messages");
-    const savedShowResponse = sessionStorage.getItem("zeroclick_chat_showResponse");
+    const savedShowResponse = sessionStorage.getItem(
+      "zeroclick_chat_showResponse",
+    );
     const savedTimestamp = sessionStorage.getItem("zeroclick_chat_timestamp");
-    
+
     let shouldLoad = false;
     if (savedTimestamp) {
       const age = Date.now() - parseInt(savedTimestamp, 10);
-      if (age < 30 * 60 * 1000) { // 30 minutes expiry
+      if (age < 30 * 60 * 1000) {
+        // 30 minutes expiry
         shouldLoad = true;
       }
     }
@@ -81,8 +89,14 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
   // Save chat history to sessionStorage whenever it changes
   useEffect(() => {
     if (isHydrated) {
-      sessionStorage.setItem("zeroclick_chat_messages", JSON.stringify(messages));
-      sessionStorage.setItem("zeroclick_chat_showResponse", String(showResponse));
+      sessionStorage.setItem(
+        "zeroclick_chat_messages",
+        JSON.stringify(messages),
+      );
+      sessionStorage.setItem(
+        "zeroclick_chat_showResponse",
+        String(showResponse),
+      );
       sessionStorage.setItem("zeroclick_chat_timestamp", String(Date.now()));
     }
   }, [messages, showResponse, isHydrated]);
@@ -169,6 +183,7 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
           role: "assistant",
           content: data.response,
           pendingAction: data.pendingAction,
+          actionToken: data.actionToken,
         },
       ]);
     } catch (err: unknown) {
@@ -178,47 +193,47 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
     }
   };
 
-  const handleActionResponse = async (responseMsg: string, messageIndex: number) => {
-    const updatedMessages = [...messages];
-    if (updatedMessages[messageIndex].pendingAction) {
-      updatedMessages[messageIndex] = {
-        ...updatedMessages[messageIndex],
-        pendingAction: {
-          ...updatedMessages[messageIndex].pendingAction!,
-          type: updatedMessages[messageIndex].pendingAction!.type,
-          completed: true,
-        },
-      };
+  const markActionCompleted = (messageIndex: number) => {
+    setMessages((prev) =>
+      prev.map((m, idx) =>
+        idx === messageIndex && m.pendingAction
+          ? { ...m, pendingAction: { ...m.pendingAction, completed: true } }
+          : m,
+      ),
+    );
+  };
+
+  const handleConfirmAction = async (
+    token: string | undefined,
+    messageIndex: number,
+  ) => {
+    if (!token) {
+      setError("This action is no longer available. Please ask again.");
+      return;
     }
 
-    const newMessages = [...updatedMessages, { role: "user", content: responseMsg }];
-    setMessages(newMessages);
+    markActionCompleted(messageIndex);
     setLoading(true);
     setError("");
     setShowResponse(true);
 
     try {
-      const res = await fetch("/api/chat", {
+      const res = await fetch("/api/chat/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: newMessages,
-          prompt: responseMsg,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        }),
+        body: JSON.stringify({ token }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Failed to fetch response");
+        throw new Error(data.error || "Failed to complete the action");
       }
 
-      setMessages([
-        ...newMessages,
+      setMessages((prev) => [
+        ...prev,
         {
           role: "assistant",
-          content: data.response,
-          pendingAction: data.pendingAction,
+          content: data.response || "Done.",
         },
       ]);
     } catch (err: unknown) {
@@ -226,6 +241,14 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCancelAction = (messageIndex: number) => {
+    markActionCompleted(messageIndex);
+    setMessages((prev) => [
+      ...prev,
+      { role: "assistant", content: "No problem — I've cancelled that." },
+    ]);
   };
 
   const renderForm = (isCentered: boolean = false) => (
@@ -338,12 +361,25 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
       ) : (
         <>
           <div className="flex items-center justify-between pb-3 mb-2 border-b border-border/45 shrink-0">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Conversation History</span>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Conversation History
+            </span>
             <button
               onClick={handleClearChat}
               className="text-xs text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-destructive/5 border border-border/50 hover:border-destructive/20 cursor-pointer"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-3">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="size-3"
+              >
                 <path d="M3 6h18"></path>
                 <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
                 <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
@@ -463,7 +499,9 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
                                 <Mail className="size-4" />
                                 {msg.pendingAction.type === "email"
                                   ? "Email Ready"
-                                  : "Event Ready"}
+                                  : msg.pendingAction.type === "reschedule"
+                                    ? "Reschedule Ready"
+                                    : "Event Ready"}
                               </div>
 
                               {msg.pendingAction.type === "email" && (
@@ -490,45 +528,56 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
                                 </div>
                               )}
 
-                              {msg.pendingAction.type === "calendar" && (
+                              {(msg.pendingAction.type === "calendar" ||
+                                msg.pendingAction.type === "reschedule") && (
                                 <div className="space-y-3 mb-6">
-                                  <div className="text-sm">
-                                    <span className="text-muted-foreground">
-                                      Title:
-                                    </span>{" "}
-                                    <span className="font-medium text-foreground">
-                                      {msg.pendingAction.summary}
-                                    </span>
-                                  </div>
-                                  <div className="text-sm">
-                                    <span className="text-muted-foreground">
-                                      Start:
-                                    </span>{" "}
-                                    <span className="font-medium text-foreground">
-                                      {new Date(
-                                        msg.pendingAction.start!,
-                                      ).toLocaleString()}
-                                    </span>
-                                  </div>
-                                  <div className="text-sm">
-                                    <span className="text-muted-foreground">
-                                      End:
-                                    </span>{" "}
-                                    <span className="font-medium text-foreground">
-                                      {new Date(
-                                        msg.pendingAction.end!,
-                                      ).toLocaleString()}
-                                    </span>
-                                  </div>
+                                  {msg.pendingAction.summary && (
+                                    <div className="text-sm">
+                                      <span className="text-muted-foreground">
+                                        Title:
+                                      </span>{" "}
+                                      <span className="font-medium text-foreground">
+                                        {msg.pendingAction.summary}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {msg.pendingAction.start && (
+                                    <div className="text-sm">
+                                      <span className="text-muted-foreground">
+                                        Start:
+                                      </span>{" "}
+                                      <span className="font-medium text-foreground">
+                                        {new Date(
+                                          msg.pendingAction.start,
+                                        ).toLocaleString()}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {msg.pendingAction.end && (
+                                    <div className="text-sm">
+                                      <span className="text-muted-foreground">
+                                        End:
+                                      </span>{" "}
+                                      <span className="font-medium text-foreground">
+                                        {new Date(
+                                          msg.pendingAction.end,
+                                        ).toLocaleString()}
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
                               )}
 
                               <div className="flex items-center gap-3">
                                 <button
                                   onClick={() =>
-                                    handleActionResponse("Yes, execute it.", i)
+                                    handleConfirmAction(msg.actionToken, i)
                                   }
-                                  disabled={msg.pendingAction.completed || loading}
+                                  disabled={
+                                    msg.pendingAction.completed ||
+                                    loading ||
+                                    !msg.actionToken
+                                  }
                                   className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   {msg.pendingAction.type === "email"
@@ -536,10 +585,10 @@ export function CommandBar({ initialPrompt }: CommandBarProps) {
                                     : "Confirm"}
                                 </button>
                                 <button
-                                  onClick={() =>
-                                    handleActionResponse("Cancel action.", i)
+                                  onClick={() => handleCancelAction(i)}
+                                  disabled={
+                                    msg.pendingAction.completed || loading
                                   }
-                                  disabled={msg.pendingAction.completed || loading}
                                   className="px-4 py-2 bg-muted text-foreground rounded-lg text-sm font-medium hover:bg-muted/80 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   Cancel

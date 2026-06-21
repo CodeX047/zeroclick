@@ -4,16 +4,51 @@ import { Agent, run, tool } from "@openai/agents";
 import { corsair } from "@/server/corsair";
 import { z } from "zod";
 import { checkAndIncrementUsage, LimitReachedError } from "@/server/usage";
+import { db } from "@/db/drizzle";
+import { pendingActions } from "@/db/schema";
 
-function sanitizeHeaderValue(value: string): string {
-  return value.replace(/[\r\n]+/g, " ").trim();
-}
+// How long a proposed action stays confirmable before its token expires.
+const PENDING_ACTION_TTL_MS = 15 * 60 * 1000;
 
-function encodeHeaderValue(value: string): string {
-  // eslint-disable-next-line no-control-regex
-  if (/^[\x00-\x7F]*$/.test(value)) return value;
-  const encoded = Buffer.from(value, "utf-8").toString("base64");
-  return `=?UTF-8?B?${encoded}?=`;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ProposedAction = Record<string, any> | undefined | null;
+
+async function persistPendingAction(userId: string, action: ProposedAction) {
+  if (!action || typeof action !== "object") return null;
+
+  let payload: Record<string, string> | null = null;
+  const type = action.type;
+
+  if (type === "email") {
+    const { to, subject, body } = action;
+    if (to && subject && body) payload = { to, subject, body };
+  } else if (type === "calendar") {
+    const { summary, start, end } = action;
+    if (summary && start && end) payload = { summary, start, end };
+  } else if (type === "reschedule") {
+    const { eventId, summary, start, end } = action;
+    if (eventId) {
+      payload = { eventId };
+      if (summary) payload.summary = summary;
+      if (start) payload.start = start;
+      if (end) payload.end = end;
+    }
+  }
+
+  if (!payload) return null;
+
+  const id = crypto.randomUUID();
+  const expiresAt = new Date(Date.now() + PENDING_ACTION_TTL_MS);
+  await db.insert(pendingActions).values({
+    id,
+    userId,
+    type,
+    payload,
+    status: "pending",
+    expiresAt,
+  });
+
+  return { token: id, pendingAction: { type, ...payload } };
 }
 
 export async function POST(req: Request) {
@@ -426,7 +461,7 @@ export async function POST(req: Request) {
       tool({
         name: "sendEmail",
         description:
-          "Send an email to a specified recipient with a subject and body.",
+          "Validate and STAGE an email for the user to confirm. This does NOT send the email — it only checks the fields are complete. After calling this, you MUST present the email and ask the user to confirm via a pendingAction; the email is only sent after the user explicitly confirms in the app.",
         parameters: z.object({
           to: z.string().optional().describe("The recipient email address."),
           subject: z.string().optional().describe("The email subject line."),
@@ -445,50 +480,18 @@ export async function POST(req: Request) {
             };
           }
 
-          try {
-            const safeTo = sanitizeHeaderValue(to!);
-            const safeSubject = encodeHeaderValue(
-              sanitizeHeaderValue(subject!),
-            );
-
-            const encodedBody = Buffer.from(body!, "utf-8")
-              .toString("base64")
-              .replace(/(.{76})/g, "$1\r\n");
-
-            const rawMessage = [
-              `To: ${safeTo}`,
-              `Subject: ${safeSubject}`,
-              "MIME-Version: 1.0",
-              'Content-Type: text/plain; charset="UTF-8"',
-              "Content-Transfer-Encoding: base64",
-              "",
-              encodedBody,
-            ].join("\r\n");
-
-            const encodedMessage = Buffer.from(rawMessage, "utf-8")
-              .toString("base64")
-              .replace(/\+/g, "-")
-              .replace(/\//g, "_")
-              .replace(/=+$/, "");
-            await tenant.gmail.api.messages.send({
-              userId: "me",
-              raw: encodedMessage,
-            });
-            return { success: true };
-          } catch (error: unknown) {
-            console.error("Error in sendEmail tool:", error);
-            return {
-              success: false,
-              userMessage:
-                "Your Gmail account isn't connected yet. Connect Gmail to summarize emails, draft replies, and send messages.",
-            };
-          }
+          return {
+            success: true,
+            staged: true,
+            requiresConfirmation: true,
+            draft: { to, subject, body },
+          };
         },
       }),
       tool({
         name: "createCalendarEvent",
         description:
-          "Create a calendar event with a summary, start date/time, and end date/time.",
+          "Validate and STAGE a calendar event for the user to confirm. This does NOT create the event — it only checks the fields are complete. After calling this, you MUST present the event and ask the user to confirm via a pendingAction; the event is only created after the user explicitly confirms in the app.",
         parameters: z.object({
           summary: z
             .string()
@@ -520,28 +523,12 @@ export async function POST(req: Request) {
             };
           }
 
-          try {
-            await tenant.googlecalendar.api.events.create({
-              calendarId: "primary",
-              event: {
-                summary,
-                start: {
-                  dateTime: startDateTime,
-                },
-                end: {
-                  dateTime: endDateTime,
-                },
-              },
-            });
-            return { success: true };
-          } catch (error: unknown) {
-            console.error("Error in createCalendarEvent tool:", error);
-            return {
-              success: false,
-              userMessage:
-                "Your Google Calendar isn't connected yet. Connect Calendar to schedule meetings and manage events.",
-            };
-          }
+          return {
+            success: true,
+            staged: true,
+            requiresConfirmation: true,
+            draft: { summary, startDateTime, endDateTime },
+          };
         },
       }),
       tool({
@@ -570,38 +557,12 @@ export async function POST(req: Request) {
         execute: async ({ eventId, summary, startDateTime, endDateTime }) => {
           if (!eventId) return { success: false, missingFields: ["eventId"] };
 
-          try {
-            // First get the existing event to avoid overwriting missing fields
-            const existingEvent = await tenant.googlecalendar.api.events.get({
-              calendarId: "primary",
-              id: eventId,
-            });
-
-            if (!existingEvent) throw new Error("Event not found");
-
-            await tenant.googlecalendar.api.events.update({
-              calendarId: "primary",
-              id: eventId,
-              event: {
-                ...existingEvent,
-                ...(summary && { summary }),
-                ...(startDateTime && {
-                  start: { ...existingEvent.start, dateTime: startDateTime },
-                }),
-                ...(endDateTime && {
-                  end: { ...existingEvent.end, dateTime: endDateTime },
-                }),
-              },
-            });
-            return { success: true };
-          } catch (error: unknown) {
-            console.error("Error in rescheduleCalendarEvent:", error);
-            return {
-              success: false,
-              userMessage:
-                "Failed to modify the event. Please ensure your calendar is connected.",
-            };
-          }
+          return {
+            success: true,
+            staged: true,
+            requiresConfirmation: true,
+            draft: { eventId, summary, startDateTime, endDateTime },
+          };
         },
       }),
       tool({
@@ -726,14 +687,20 @@ You MUST output ALL your final responses in strictly valid JSON format.
 Your output must exactly match this JSON structure:
 {
   "response": "Your conversational text response here. Ask for confirmation if needed.",
-  "pendingAction": { // ONLY INCLUDE THIS IF YOU ARE ASKING FOR CONFIRMATION TO SEND AN EMAIL OR SCHEDULE AN EVENT.
-    "type": "email", // or "calendar"
+  "pendingAction": { // ONLY INCLUDE THIS WHEN ASKING THE USER TO CONFIRM SENDING AN EMAIL, SCHEDULING AN EVENT, OR RESCHEDULING AN EVENT.
+    "type": "email", // or "calendar" or "reschedule"
     // For emails include: "to", "subject", "body"
     // For calendar include: "summary", "start", "end"
+    // For reschedule include: "eventId" (required), and any of "summary", "start", "end"
   }
 }
 
 Do not include any markdown backticks around your JSON output. Just output the raw JSON object.
+
+CRITICAL EXECUTION RULE:
+You can NEVER send an email, create an event, or reschedule an event yourself. Your tools only PREPARE these actions; the user must confirm them in the app before anything happens. Therefore:
+* When an action is ready, set "pendingAction" and ask the user to confirm. Do NOT say the action is "done", "sent", "scheduled", or "rescheduled" — say it is "ready to send" / "ready to schedule" and ask them to confirm.
+* The system handles execution after the user clicks confirm. You will not receive a follow-up turn for the confirmation itself.
 
 Keep responses short, polite, user-friendly, and action-oriented.
 Today's date and time is ${localTimeStr} in the user's local timezone (${timezone}). When the user specifies times or dates, ALWAYS assume they are referring to this local timezone (${timezone}). When calling tools, generate ISO 8601 strings that correctly match the user's local offset for ${timezone} (e.g. +05:30 or -04:00) so calendar slots are aligned.`,
@@ -781,13 +748,31 @@ Today's date and time is ${localTimeStr} in the user's local timezone (${timezon
       }
     }
 
-    return NextResponse.json({ response: parsedResponse, pendingAction });
+    let actionToken: string | undefined;
+    let safePendingAction: { type: string; [k: string]: string } | undefined;
+    if (pendingAction) {
+      try {
+        const stored = await persistPendingAction(user.id, pendingAction);
+        if (stored) {
+          actionToken = stored.token;
+          safePendingAction = stored.pendingAction;
+        }
+      } catch (persistError) {
+        console.error("Failed to persist pending action:", persistError);
+      }
+    }
+
+    return NextResponse.json({
+      response: parsedResponse,
+      pendingAction: safePendingAction,
+      actionToken,
+    });
   } catch (error: unknown) {
     console.error("Agent Error:", error);
     return NextResponse.json(
       {
         error:
-          error instanceof Error ? error.message : "Failed to process request",
+          "Something went wrong while processing your request. Please try again.",
       },
       { status: 500 },
     );

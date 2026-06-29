@@ -33,6 +33,22 @@ Special thanks to [Corsair](https://corsair.dev/) for providing the integration 
 
 ---
 
+## Available AI Tools
+
+The AI assistant is equipped with the following capabilities to manage your inbox and calendar intelligently:
+
+- **`getLatestEmails`**: Retrieve your latest emails from your inbox, including subject, sender, and snippet.
+- **`getUpcomingEvents`**: Retrieve your upcoming calendar events.
+- **`getLiveUpcomingEvents`**: Fetch live upcoming calendar events directly from the API for accurate rescheduling and querying.
+- **`getNextMeeting`**: Identify your absolute next upcoming meeting.
+- **`checkCalendarConflicts`**: Check for overlapping events in a given time range and automatically suggest alternative free slots.
+- **`sendEmail`**: Validate and stage an email draft for your explicit confirmation before sending.
+- **`createCalendarEvent`**: Validate and stage a calendar event for your confirmation before creation.
+- **`rescheduleCalendarEvent`**: Stage a modification to an existing calendar event for your confirmation.
+- **`isSupportedRequest`**: Determine if a request is related to the email and calendar domain to ensure focused AI responses.
+
+---
+
 ## Tech Stack
 
 - **Frontend Framework:** Next.js (App Router)

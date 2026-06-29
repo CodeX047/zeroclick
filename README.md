@@ -48,15 +48,52 @@ Special thanks to [Corsair](https://corsair.dev/) for providing the integration 
 
 ### 1. Prerequisites
 
-Ensure you have Node.js and `pnpm` installed on your machine. You will also need a `.env` file in the root directory containing your API credentials (Clerk publishable keys, secret keys, Corsair variables, etc.).
+Ensure you have Node.js and `pnpm` installed on your machine.
 
-### 2. Install Dependencies
+### 2. Environment Variables
+
+Create a `.env` file in the root directory containing your API credentials. You can use the provided `.env.example` as a template:
+
+```bash
+cp .env.example .env
+```
+
+The required environment variables are:
+
+```env
+# Corsair Key
+CORSAIR_KEK=
+
+# Neon DB
+DATABASE_URL=
+
+# Clerk
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+CLERK_SECRET_KEY=
+
+# Clerk Auth UI routes
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/auth-callback
+NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/auth-callback
+
+# Domain
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# OpenRouter / OpenAI
+OPENROUTER_API_KEY=
+OPENAI_API_KEY=
+OPENAI_BASE_URL=https://openrouter.ai/api/v1
+OPENAI_AGENTS_DISABLE_TRACING=true
+```
+
+### 3. Install Dependencies
 
 ```bash
 pnpm install
 ```
 
-### 3. Run the Development Server
+### 4. Run the Development Server
 
 ```bash
 pnpm dev
@@ -64,7 +101,7 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser to view the application.
 
-### 4. Build for Production
+### 5. Build for Production
 
 To build the optimized production bundle:
 
